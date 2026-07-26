@@ -17,8 +17,9 @@ Knit's remote layer with typed ByteNet contracts.
 | `KnitStart` | `NerveStart` |
 | `Knit.Start` | `Nerve.Start` |
 
-Rename bootstrap scripts and local variables as well, then ensure every service
-and controller loads before `Nerve.Start()`.
+Delete the old Knit server and client bootstrap scripts. Nerve's packaged
+RunContext scripts automatically load the standard service and controller
+folders and start both realms.
 
 ## Replace implicit remotes
 

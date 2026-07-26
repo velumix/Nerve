@@ -108,7 +108,7 @@ local NerveServer = {}
 
 	The installed Nerve version.
 ]=]
-NerveServer.Version = "1.0.0"
+NerveServer.Version = "1.1.0"
 
 --[=[
 	@prop Dependencies Folder

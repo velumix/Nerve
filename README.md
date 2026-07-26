@@ -25,29 +25,24 @@ the package through Wally:
 
 ```toml
 [dependencies]
-Nerve = "velumix/nerve@1.0.0"
+Nerve = "velumix/nerve@1.1.0"
 ```
 
-Server bootstrap:
+Nerve starts itself. Its bundled server and client Scripts run directly from the
+Nerve package with `RunContext.Server` and `RunContext.Client`.
 
-```luau
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
-local Nerve = require(ReplicatedStorage.Nerve)
+By default, the server loads direct ModuleScript children from
+`ServerScriptService.Services`, and the client loads direct ModuleScript
+children from `ReplicatedStorage.Client.Controllers`. If either folder is
+absent, that realm starts with an empty registry.
 
-Nerve.AddServices(ServerScriptService.Services)
-Nerve.Start():catch(warn)
-```
+Configure autostart with attributes on the Nerve ModuleScript:
 
-Client bootstrap:
-
-```luau
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Nerve = require(ReplicatedStorage.Nerve)
-
-Nerve.AddControllers(ReplicatedStorage.Client.Controllers)
-Nerve.Start():catch(warn)
-```
+- `AutoStart`, `AutoStartServer`, or `AutoStartClient` = `false` disables the
+  matching bootstrap.
+- `ServerServicesPath` and `ClientControllersPath` replace the default
+  dot-separated DataModel paths.
+- `DeepServiceDiscovery` and `DeepControllerDiscovery` enable recursive loading.
 
 ## Typed networking
 

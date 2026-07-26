@@ -11,6 +11,9 @@ the same two-stage lifecycle:
 2. `NerveStart` runs after all initialization completes and is spawned in its
    own task.
 
+The bundled RunContext bootstraps automatically load these modules from the
+configured service and controller folders before starting Nerve.
+
 ## Server service
 
 ```luau title="ServerScriptService/Services/InventoryService.luau"
@@ -34,8 +37,8 @@ return InventoryService
 ```
 
 Use `Nerve.GetService("InventoryService")` from another service after startup.
-Loading with `AddServices` requires direct child ModuleScripts;
-`AddServicesDeep` recursively loads descendants.
+The default bootstrap loads direct child ModuleScripts. Set the
+`DeepServiceDiscovery` attribute to `true` to recursively load descendants.
 
 ## Client controller
 
@@ -59,8 +62,8 @@ return InventoryController
 ```
 
 Use `Nerve.GetController(name)` to retrieve another controller.
-`AddControllers` loads direct children and `AddControllersDeep` recursively
-loads descendants.
+The default bootstrap loads direct children. Set `DeepControllerDiscovery` to
+`true` to recursively load descendants.
 
 ## Waiting for startup
 
