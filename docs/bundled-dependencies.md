@@ -1,0 +1,39 @@
+---
+sidebar_position: 5
+---
+
+# Bundled dependencies
+
+Nerve is deliberately self-contained. Requiring Nerve does not initialize every
+utility; bundled modules load lazily when requested.
+
+```luau
+local ProfileService = Nerve.GetDependency("ProfileService")
+local Trove = Nerve.GetDependency("Trove")
+```
+
+The same modules are also present under `Nerve.Dependencies` for tooling that
+needs the ModuleScript instance.
+
+| Module | Version | Typical use |
+| --- | ---: | --- |
+| ByteNet | 0.4.6 | Typed, buffer-based networking |
+| Promise | 4.0.0 | Asynchronous composition and cancellation |
+| Signal | 2.0.3 | Local event dispatch |
+| ProfileService | 1.0.2 | Server-side player data persistence |
+| Component | 2.4.8 | Tag-driven component lifecycle |
+| Trove | 1.8.0 | Resource cleanup |
+| TableUtil | 1.2.1 | Common table operations |
+| Option | 1.0.5 | Explicit optional values |
+| Timer | 2.0.0 | Repeating timers |
+| Input | 3.0.0 | Keyboard, mouse, touch, and gamepad helpers |
+| EnumList | 2.1.0 | Custom enum-like values |
+| Streamable | 1.2.4 | Streaming-aware instance access |
+| Symbol | 2.0.1 | Unique symbolic keys |
+
+ProfileService is intended for server use. Never trust persisted data sent back
+from the client.
+
+Nerve itself is MIT licensed. Bundled code remains under its original license;
+see the repository's `THIRD_PARTY_NOTICES.md` and `licenses` directory for the
+complete attribution.

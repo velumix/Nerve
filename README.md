@@ -1,5 +1,8 @@
 # Nerve
 
+[![MIT License](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)
+[![Documentation](https://github.com/velumix/Nerve/actions/workflows/publish-docs.yml/badge.svg)](https://velumix.github.io/Nerve/)
+
 Give your game a nervous system.
 
 Nerve is a batteries-included Roblox framework with a service/controller
@@ -8,6 +11,12 @@ cleanup utilities, components, input helpers, and common data utilities in one
 drop-in package.
 
 Nerve has no runtime dependencies outside its own folder.
+
+## Documentation
+
+Read the [Nerve documentation](https://velumix.github.io/Nerve/) for the
+installation guide, lifecycle model, typed networking, schemas, bundled
+dependencies, migration guide, and complete API reference.
 
 ## Install
 

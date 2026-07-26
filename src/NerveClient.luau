@@ -3,6 +3,7 @@
 	.Inbound ClientMiddleware?
 	.Outbound ClientMiddleware?
 	@within NerveClient
+	@private
 ]=]
 type Middleware = {
 	Inbound: ClientMiddleware?,
@@ -12,14 +13,14 @@ type Middleware = {
 --[=[
 	@type ClientMiddlewareFn (args: {any}) -> (shouldContinue: boolean, ...: any)
 	@within NerveClient
-
-	For more info, see [ClientComm](https://sleitnick.github.io/RbxUtil/api/ClientComm/) documentation.
+	@private
 ]=]
 type ClientMiddlewareFn = (args: { any }) -> (boolean, ...any)
 
 --[=[
 	@type ClientMiddleware {ClientMiddlewareFn}
 	@within NerveClient
+	@private
 	An array of client middleware functions.
 ]=]
 type ClientMiddleware = { ClientMiddlewareFn }
@@ -27,6 +28,7 @@ type ClientMiddleware = { ClientMiddlewareFn }
 --[=[
 	@type PerServiceMiddleware {[string]: Middleware}
 	@within NerveClient
+	@private
 ]=]
 type PerServiceMiddleware = { [string]: Middleware }
 
@@ -63,23 +65,18 @@ type Service = {
 }
 
 --[=[
-	@interface NerveOptions
-	.ServicePromises boolean?
-	.Middleware Middleware?
-	.PerServiceMiddleware PerServiceMiddleware?
+	@interface NerveClientOptions
 	@within NerveClient
 
-	- `ServicePromises` defaults to `true` and indicates if service methods use promises.
-	- Each service will go through the defined middleware, unless the service
-	has middleware defined in `PerServiceMiddleware`.
+	Reserved compatibility options. Nerve 1.0 has no public client start options.
 ]=]
-type NerveOptions = {
+type NerveClientOptions = {
 	ServicePromises: boolean,
 	Middleware: Middleware?,
 	PerServiceMiddleware: PerServiceMiddleware?,
 }
 
-local defaultOptions: NerveOptions = {
+local defaultOptions: NerveClientOptions = {
 	ServicePromises = true,
 	Middleware = nil,
 	PerServiceMiddleware = {},
@@ -90,8 +87,19 @@ local selectedOptions = nil
 --[=[
 	@class NerveClient
 	@client
+
+	The client API creates controllers, runs their lifecycle, and constructs
+	typed service proxies from the server's Nerve manifest.
 ]=]
 local NerveClient = {}
+
+--[=[
+	@prop Version string
+	@within NerveClient
+	@readonly
+
+	The installed Nerve version.
+]=]
 NerveClient.Version = "1.0.0"
 
 --[=[
@@ -103,15 +111,23 @@ NerveClient.Version = "1.0.0"
 NerveClient.Player = game:GetService("Players").LocalPlayer
 
 --[=[
+	@prop Dependencies Folder
+	@within NerveClient
+	@readonly
+
+	The folder containing Nerve's bundled runtime dependencies. Prefer
+	[NerveClient:GetDependency] when the ModuleScript instance is not required.
+]=]
+NerveClient.Dependencies = script.Parent.Dependencies
+
+--[=[
 	@prop Util Folder
 	@within NerveClient
 	@readonly
-	References the Util folder. Should only be accessed when using Nerve as
-	a standalone module. If using Nerve from Wally, modules should just be
-	pulled in via Wally instead of relying on Nerve's Util folder, as this
-	folder only contains what is necessary for Nerve to run in Wally mode.
+	@deprecated 1.0.0 -- Use `Dependencies` or `GetDependency`.
+
+	Compatibility alias for [NerveClient.Dependencies].
 ]=]
-NerveClient.Dependencies = script.Parent.Dependencies
 NerveClient.Util = NerveClient.Dependencies
 
 local Promise = require(NerveClient.Dependencies.Promise)
@@ -125,6 +141,13 @@ NerveClient.SignalClass = require(NerveClient.Dependencies.Signal)
 NerveClient.Method = ByteNetRuntime.Method
 NerveClient.Signal = ByteNetRuntime.Signal
 
+--[=[
+	Lazily requires one of Nerve's bundled utilities by name.
+
+	@param name string -- For example, `"Trove"` or `"TableUtil"`.
+	@return any
+	@tag dependencies
+]=]
 function NerveClient.GetDependency(name: string): any
 	assert(type(name) == "string" and name ~= "", "dependency name must be a non-empty string")
 	local dependency = NerveClient.Dependencies:FindFirstChild(name)
@@ -172,6 +195,7 @@ end
 		print("MyController initialized")
 	end
 	```
+	@tag lifecycle
 ]=]
 function NerveClient.CreateController(controllerDef: ControllerDef): Controller
 	assert(type(controllerDef) == "table", `Controller must be a table; got {type(controllerDef)}`)
@@ -192,6 +216,7 @@ end
 	```lua
 	Nerve.AddControllers(somewhere.Controllers)
 	```
+	@tag discovery
 ]=]
 function NerveClient.AddControllers(parent: Instance): { Controller }
 	assert(not started, `Controllers cannot be added after calling "Nerve.Start()"`)
@@ -210,6 +235,7 @@ end
 
 --[=[
 	Requires all the modules that are descendants of the given parent.
+	@tag discovery
 ]=]
 function NerveClient.AddControllersDeep(parent: Instance): { Controller }
 	assert(not started, `Controllers cannot be added after calling "Nerve.Start()"`)
@@ -227,25 +253,19 @@ function NerveClient.AddControllersDeep(parent: Instance): { Controller }
 end
 
 --[=[
-	Returns a Service object which is a reflection of the remote objects
-	within the Client table of the given service. Throws an error if the
-	service is not found.
-
-	If a service's Client table contains RemoteSignals and/or RemoteProperties,
-	these values are reflected as
-	[ClientRemoteSignals](https://sleitnick.github.io/RbxUtil/api/ClientRemoteSignal) and
-	[ClientRemoteProperties](https://sleitnick.github.io/RbxUtil/api/ClientRemoteProperty).
+	Returns a typed service proxy constructed from the server's network manifest.
+	Throws an error if the service is not found or does not expose a method or
+	signal.
 
 	```lua
 	-- Server-side service creation:
 	local MyService = Nerve.CreateService {
 		Name = "MyService",
 		Client = {
-			MySignal = Nerve.CreateSignal(),
-			MyProperty = Nerve.CreateProperty("Hello"),
+			MySignal = Nerve.CreateSignal(nil, {Direction = "duplex"}),
 		},
 	}
-	function MyService:AddOne(player, number)
+	function MyService.Client:AddOne(player, number)
 		return number + 1
 	end
 
@@ -254,8 +274,10 @@ end
 	-- Client-side service reflection:
 	local MyService = Nerve.GetService("MyService")
 
-	-- Call a method:
-	local num = MyService:AddOne(5) --> 6
+	-- Methods return cancellable promises:
+	MyService:AddOne(5):andThen(function(num)
+		print(num) --> 6
+	end):catch(warn)
 
 	-- Fire a signal to the server:
 	MyService.MySignal:Fire("Hello")
@@ -265,18 +287,13 @@ end
 		print(message)
 	end)
 
-	-- Observe the initial value and changes to properties:
-	MyService.MyProperty:Observe(function(value)
-		print(value)
-	end)
 	```
 
 	:::caution
-	Services are only exposed to the client if the service has remote-based
-	content in the Client table. If not, the service will not be visible
-	to the client. `NerveClient.GetService` will only work on services that
-	expose remote-based content on their Client tables.
+	A service only appears in the client manifest when it exposes at least one
+	method or signal.
 	:::
+	@tag discovery
 ]=]
 function NerveClient.GetService(serviceName: string): Service
 	local service = services[serviceName]
@@ -293,6 +310,7 @@ end
 --[=[
 	Gets the controller by name. Throws an error if the controller
 	is not found.
+	@tag discovery
 ]=]
 function NerveClient.GetController(controllerName: string): Controller
 	local controller = controllers[controllerName]
@@ -307,6 +325,7 @@ end
 
 --[=[
 	Gets a table of all controllers.
+	@tag discovery
 ]=]
 function NerveClient.GetControllers(): { [string]: Controller }
 	assert(started, "Cannot call GetControllers until Nerve has been started")
@@ -322,16 +341,9 @@ end
 		print("Nerve started!")
 	end):catch(warn)
 	```
-
-	By default, service methods exposed to the client will return promises.
-	To change this behavior, set the `ServicePromises` option to `false`:
-	```lua
-	Nerve.Start({ServicePromises = false}):andThen(function()
-		print("Nerve started!")
-	end):catch(warn)
-	```
+	@tag lifecycle
 ]=]
-function NerveClient.Start(options: NerveOptions?)
+function NerveClient.Start(options: NerveClientOptions?)
 	if started then
 		return Promise.reject("Nerve already started")
 	end
@@ -406,6 +418,7 @@ end
 		MyController:DoSomething()
 	end):catch(warn)
 	```
+	@tag lifecycle
 ]=]
 function NerveClient.OnStart()
 	if startedComplete then

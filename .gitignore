@@ -2,3 +2,6 @@ Packages/
 DevPackages/
 *.rbxm
 *.rbxl
+build/
+node_modules/
+.moonwave/cache/
