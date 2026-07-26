@@ -1,0 +1,49 @@
+title = "Nerve"
+gitRepoUrl = "https://github.com/velumix/Nerve"
+gitSourceBranch = "main"
+changelog = false
+classOrder = ["NerveServer", "NerveClient", "Schema"]
+
+[docusaurus]
+organizationName = "velumix"
+projectName = "Nerve"
+url = "https://velumix.github.io"
+baseUrl = "/Nerve/"
+tagline = "Give your Roblox game a nervous system."
+onBrokenLinks = "throw"
+
+[home]
+enabled = true
+includeReadme = true
+
+[[home.features]]
+title = "One package"
+description = "Services, controllers, ByteNet networking, persistence, promises, signals, cleanup, components, input, and data utilities ship together."
+
+[[home.features]]
+title = "Typed networking"
+description = "Declare schemas next to service contracts and let Nerve construct deterministic ByteNet packets for methods and signals."
+
+[[home.features]]
+title = "Production safeguards"
+description = "Request timeouts, bounded in-flight calls, server rate limits, sanitized errors, and explicit signal direction are built in."
+
+[[navbar.items]]
+href = "https://github.com/velumix/Nerve"
+label = "GitHub"
+position = "right"
+
+[[footer.links]]
+title = "Nerve"
+
+[[footer.links.items]]
+label = "GitHub"
+href = "https://github.com/velumix/Nerve"
+
+[[footer.links.items]]
+label = "License"
+href = "https://github.com/velumix/Nerve/blob/main/LICENSE"
+
+[footer]
+style = "dark"
+copyright = "Nerve is open-source software released under the MIT License."

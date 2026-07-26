@@ -1,5 +1,8 @@
 # Nerve
 
+[![MIT License](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)
+[![Documentation](https://github.com/velumix/Nerve/actions/workflows/publish-docs.yml/badge.svg)](https://velumix.github.io/Nerve/)
+
 Give your game a nervous system.
 
 Nerve is a batteries-included Roblox framework with a service/controller
@@ -9,6 +12,12 @@ drop-in package.
 
 Nerve has no runtime dependencies outside its own folder.
 
+## Documentation
+
+Read the [Nerve documentation](https://velumix.github.io/Nerve/) for the
+installation guide, lifecycle model, typed networking, schemas, bundled
+dependencies, migration guide, and complete API reference.
+
 ## Install
 
 Copy `src` into `ReplicatedStorage` as a ModuleScript named `Nerve`, or install
@@ -16,29 +25,24 @@ the package through Wally:
 
 ```toml
 [dependencies]
-Nerve = "velumix/nerve@1.0.0"
+Nerve = "velumix/nerve@1.1.0"
 ```
 
-Server bootstrap:
+Nerve starts itself. Its bundled server and client Scripts run directly from the
+Nerve package with `RunContext.Server` and `RunContext.Client`.
 
-```luau
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
-local Nerve = require(ReplicatedStorage.Nerve)
+By default, the server loads direct ModuleScript children from
+`ServerScriptService.Services`, and the client loads direct ModuleScript
+children from `ReplicatedStorage.Client.Controllers`. If either folder is
+absent, that realm starts with an empty registry.
 
-Nerve.AddServices(ServerScriptService.Services)
-Nerve.Start():catch(warn)
-```
+Configure autostart with attributes on the Nerve ModuleScript:
 
-Client bootstrap:
-
-```luau
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Nerve = require(ReplicatedStorage.Nerve)
-
-Nerve.AddControllers(ReplicatedStorage.Client.Controllers)
-Nerve.Start():catch(warn)
-```
+- `AutoStart`, `AutoStartServer`, or `AutoStartClient` = `false` disables the
+  matching bootstrap.
+- `ServerServicesPath` and `ClientControllersPath` replace the default
+  dot-separated DataModel paths.
+- `DeepServiceDiscovery` and `DeepControllerDiscovery` enable recursive loading.
 
 ## Typed networking
 

@@ -3,6 +3,7 @@
 	.Inbound ServerMiddleware?
 	.Outbound ServerMiddleware?
 	@within NerveServer
+	@private
 ]=]
 type Middleware = {
 	Inbound: ServerMiddleware?,
@@ -12,14 +13,14 @@ type Middleware = {
 --[=[
 	@type ServerMiddlewareFn (player: Player, args: {any}) -> (shouldContinue: boolean, ...: any)
 	@within NerveServer
-
-	For more info, see [ServerComm](https://sleitnick.github.io/RbxUtil/api/ServerComm/) documentation.
+	@private
 ]=]
 type ServerMiddlewareFn = (player: Player, args: { any }) -> (boolean, ...any)
 
 --[=[
 	@type ServerMiddleware {ServerMiddlewareFn}
 	@within NerveServer
+	@private
 	An array of server middleware functions.
 ]=]
 type ServerMiddleware = { ServerMiddlewareFn }
@@ -28,14 +29,9 @@ type ServerMiddleware = { ServerMiddlewareFn }
 	@interface ServiceDef
 	.Name string
 	.Client table?
-	.Middleware Middleware?
 	.[any] any
 	@within NerveServer
 	Used to define a service when creating it in `CreateService`.
-
-	The middleware tables provided will be used instead of the Nerve-level
-	middleware (if any). This allows fine-tuning each service's middleware.
-	These can also be left out or `nil` to not include middleware.
 ]=]
 type ServiceDef = {
 	Name: string,
@@ -48,7 +44,6 @@ type ServiceDef = {
 	@interface Service
 	.Name string
 	.Client ServiceClient
-	.NerveComm Comm
 	.[any] any
 	@within NerveServer
 ]=]
@@ -70,18 +65,16 @@ type ServiceClient = {
 }
 
 --[=[
-	@interface NerveOptions
-	.Middleware Middleware?
+	@interface NerveServerOptions
 	@within NerveServer
 
-	- Middleware will apply to all services _except_ ones that define
-	their own middleware.
+	Reserved compatibility options. Nerve 1.0 has no public server start options.
 ]=]
-type NerveOptions = {
+type NerveServerOptions = {
 	Middleware: Middleware?,
 }
 
-local defaultOptions: NerveOptions = {
+local defaultOptions: NerveServerOptions = {
 	Middleware = nil,
 }
 
@@ -90,8 +83,9 @@ local selectedOptions = nil
 --[=[
 	@class NerveServer
 	@server
-	Nerve server-side lets developers create services and expose methods and signals
-	to the clients.
+
+	The server API creates services, runs their lifecycle, and exposes typed
+	ByteNet methods and signals to clients.
 
 	```lua
 	local Nerve = require(somewhere.Nerve)
@@ -106,18 +100,34 @@ local selectedOptions = nil
 	```
 ]=]
 local NerveServer = {}
-NerveServer.Version = "1.0.0"
+
+--[=[
+	@prop Version string
+	@within NerveServer
+	@readonly
+
+	The installed Nerve version.
+]=]
+NerveServer.Version = "1.1.0"
+
+--[=[
+	@prop Dependencies Folder
+	@within NerveServer
+	@readonly
+
+	The folder containing Nerve's bundled runtime dependencies. Prefer
+	[NerveServer:GetDependency] when the ModuleScript instance is not required.
+]=]
+NerveServer.Dependencies = script.Parent.Dependencies
 
 --[=[
 	@prop Util Folder
 	@within NerveServer
 	@readonly
-	References the Util folder. Should only be accessed when using Nerve as
-	a standalone module. If using Nerve from Wally, modules should just be
-	pulled in via Wally instead of relying on Nerve's Util folder, as this
-	folder only contains what is necessary for Nerve to run in Wally mode.
+	@deprecated 1.0.0 -- Use `Dependencies` or `GetDependency`.
+
+	Compatibility alias for [NerveServer.Dependencies].
 ]=]
-NerveServer.Dependencies = script.Parent.Dependencies
 NerveServer.Util = NerveServer.Dependencies
 
 local Promise = require(NerveServer.Dependencies.Promise)
@@ -129,6 +139,13 @@ NerveServer.ByteNet = require(NerveServer.Dependencies.ByteNet)
 NerveServer.Promise = Promise
 NerveServer.SignalClass = require(NerveServer.Dependencies.Signal)
 
+--[=[
+	Lazily requires one of Nerve's bundled utilities by name.
+
+	@param name string -- For example, `"ProfileService"` or `"Trove"`.
+	@return any
+	@tag dependencies
+]=]
 function NerveServer.GetDependency(name: string): any
 	assert(type(name) == "string" and name ~= "", "dependency name must be a non-empty string")
 	local dependency = NerveServer.Dependencies:FindFirstChild(name)
@@ -136,12 +153,34 @@ function NerveServer.GetDependency(name: string): any
 	return require(dependency)
 end
 
--- Defines a typed client-to-server request/response contract for a Client
--- method. Put these under a service's Network table using the same member name.
+--[=[
+	@function Method
+	@within NerveServer
+	@server
+
+	Defines a typed client-to-server request/response contract. Place the result
+	in a service's `Network` table using the same name as its `Client` method.
+
+	@param options {Request: Descriptor?, Response: Descriptor?, Timeout: number?, RateLimit: {Requests: number, Window: number}?}?
+	@return any
+	@tag networking
+]=]
 NerveServer.Method = ByteNetRuntime.Method
 
--- Defines an explicitly directed ByteNet signal. Server-to-client is the safe
--- default; pass Direction = "client" or "duplex" only when required.
+--[=[
+	@function Signal
+	@within NerveServer
+	@server
+
+	Defines a typed ByteNet signal. Signals are reliable and server-to-client by
+	default. Place the marker directly in the service's `Client` table. Set
+	`Direction` to `"client"` or `"duplex"` only when needed.
+
+	@param arguments Descriptor? -- Tuple descriptor for signal arguments.
+	@param options {Direction: string?, Reliability: string?}?
+	@return any
+	@tag networking
+]=]
 NerveServer.Signal = ByteNetRuntime.Signal
 
 local services: { [string]: Service } = {}
@@ -183,6 +222,7 @@ end
 		print("MyService initialize")
 	end
 	```
+	@tag lifecycle
 ]=]
 function NerveServer.CreateService(serviceDef: ServiceDef): Service
 	assert(type(serviceDef) == "table", `Service must be a table; got {type(serviceDef)}`)
@@ -212,6 +252,7 @@ end
 	```lua
 	Nerve.AddServices(somewhere.Services)
 	```
+	@tag discovery
 ]=]
 function NerveServer.AddServices(parent: Instance): { Service }
 	assert(not started, `Services cannot be added after calling "Nerve.Start()"`)
@@ -230,6 +271,7 @@ end
 
 --[=[
 	Requires all the modules that are descendants of the given parent.
+	@tag discovery
 ]=]
 function NerveServer.AddServicesDeep(parent: Instance): { Service }
 	assert(not started, `Services cannot be added after calling "Nerve.Start()"`)
@@ -248,6 +290,7 @@ end
 
 --[=[
 	Gets the service by name. Throws an error if the service is not found.
+	@tag discovery
 ]=]
 function NerveServer.GetService(serviceName: string): Service
 	assert(started, "Cannot call GetService until Nerve has been started")
@@ -258,6 +301,7 @@ end
 
 --[=[
 	Gets a table of all services.
+	@tag discovery
 ]=]
 function NerveServer.GetServices(): { [string]: Service }
 	assert(started, "Cannot call GetServices until Nerve has been started")
@@ -266,26 +310,23 @@ function NerveServer.GetServices(): { [string]: Service }
 end
 
 --[=[
-	@return SIGNAL_MARKER
-	Returns a marker that will transform the current key into
-	a RemoteSignal once the service is created. Should only
-	be called within the Client table of a service.
+	Compatibility alias for [NerveServer.Signal]. Define signals directly in the
+	service's `Client` table.
 
-	See [RemoteSignal](https://sleitnick.github.io/RbxUtil/api/RemoteSignal)
-	documentation for more info.
+	@param arguments Descriptor?
+	@param options table?
+	@return any
+	@tag networking
 	```lua
 	local MyService = Nerve.CreateService {
 		Name = "MyService",
 		Client = {
-			-- Create the signal marker, which will turn into a
-			-- RemoteSignal when Nerve.Start() is called:
-			MySignal = Nerve.CreateSignal(),
+			MySignal = Nerve.CreateSignal(Nerve.Schema.Tuple({Nerve.Schema.String})),
 		},
 	}
 
 	function MyService:NerveInit()
-		-- Connect to the signal:
-		self.Client.MySignal:Connect(function(player, ...) end)
+		self.Client.MySignal:FireAll("Ready")
 	end
 	```
 ]=]
@@ -294,23 +335,14 @@ function NerveServer.CreateSignal(arguments, options)
 end
 
 --[=[
-	@return UNRELIABLE_SIGNAL_MARKER
+	Defines a signal using unreliable, unordered transport. Use this for
+	frequently replaced state such as aim or cosmetic transforms, never for
+	critical gameplay events.
 
-	Returns a marker that will transform the current key into
-	an unreliable RemoteSignal once the service is created. Should
-	only be called within the Client table of a service.
-
-	See [RemoteSignal](https://sleitnick.github.io/RbxUtil/api/RemoteSignal)
-	documentation for more info.
-
-	:::info Unreliable Events
-	Internally, this uses UnreliableRemoteEvents, which allows for
-	network communication that is unreliable and unordered. This is
-	useful for events that are not crucial for gameplay, since the
-	delivery of the events may occur out of order or not at all.
-
-	See  the documentation for [UnreliableRemoteEvents](https://create.roblox.com/docs/reference/engine/classes/UnreliableRemoteEvent)
-	for more info.
+	@param arguments Descriptor?
+	@param options table?
+	@return any
+	@tag networking
 ]=]
 function NerveServer.CreateUnreliableSignal(arguments, options)
 	local resolved = if type(options) == "table" then table.clone(options) else {}
@@ -319,33 +351,13 @@ function NerveServer.CreateUnreliableSignal(arguments, options)
 end
 
 --[=[
-	@return PROPERTY_MARKER
-	Returns a marker that will transform the current key into
-	a RemoteProperty once the service is created. Should only
-	be called within the Client table of a service. An initial
-	value can be passed along as well.
+	Reserved compatibility marker. Nerve 1.0 does not expose property markers in
+	the ByteNet manifest; use a typed method for initial state and a typed signal
+	for subsequent changes.
 
-	RemoteProperties are great for replicating data to all of
-	the clients. Different data can also be set per client.
-
-	See [RemoteProperty](https://sleitnick.github.io/RbxUtil/api/RemoteProperty)
-	documentation for more info.
-
-	```lua
-	local MyService = Nerve.CreateService {
-		Name = "MyService",
-		Client = {
-			-- Create the property marker, which will turn into a
-			-- RemoteProperty when Nerve.Start() is called:
-			MyProperty = Nerve.CreateProperty("HelloWorld"),
-		},
-	}
-
-	function MyService:NerveInit()
-		-- Change the value of the property:
-		self.Client.MyProperty:Set("HelloWorldAgain")
-	end
-	```
+	@param initialValue any
+	@return any
+	@tag networking
 ]=]
 function NerveServer.CreateProperty(initialValue: any)
 	return ByteNetRuntime.Property(initialValue)
@@ -354,9 +366,6 @@ end
 --[=[
 	@return Promise
 	Starts Nerve. Should only be called once.
-
-	Optionally, `NerveOptions` can be passed in order to set
-	Nerve's custom configurations.
 
 	:::caution
 	Be sure that all services have been created _before_
@@ -368,24 +377,9 @@ end
 		print("Nerve started!")
 	end):catch(warn)
 	```
-	
-	Example of Nerve started with options:
-	```lua
-	Nerve.Start({
-		Middleware = {
-			Inbound = {
-				function(player, args)
-					print("Player is giving following args to server:", args)
-					return true
-				end
-			},
-		},
-	}):andThen(function()
-		print("Nerve started!")
-	end):catch(warn)
-	```
+	@tag lifecycle
 ]=]
-function NerveServer.Start(options: NerveOptions?)
+function NerveServer.Start(options: NerveServerOptions?)
 	if started then
 		return Promise.reject("Nerve already started")
 	end
@@ -456,6 +450,7 @@ end
 		MyService:DoSomething()
 	end):catch(warn)
 	```
+	@tag lifecycle
 ]=]
 function NerveServer.OnStart()
 	if startedComplete then
