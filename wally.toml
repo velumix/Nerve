@@ -1,0 +1,12 @@
+[package]
+name = "velumix/nerve"
+version = "1.0.0"
+description = "Batteries-included Roblox framework powered by ByteNet"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+license = "MIT"
+authors = ["Velumix"]
+repository = "https://github.com/velumix/Nerve"
+include = ["src", "LICENSE", "THIRD_PARTY_NOTICES.md", "licenses"]
+
+[dependencies]

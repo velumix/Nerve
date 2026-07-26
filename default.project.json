@@ -1,0 +1,11 @@
+{
+  "name": "Nerve",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Nerve": {
+        "$path": "src"
+      }
+    }
+  }
+}
