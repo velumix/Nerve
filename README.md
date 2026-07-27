@@ -28,7 +28,7 @@ the package through Wally:
 
 ```toml
 [dependencies]
-Nerve = "velumix/nerve@1.2.0"
+Nerve = "velumix/nerve@1.3.0"
 ```
 
 Nerve starts itself. Its bundled server and client Scripts run directly from the
@@ -86,7 +86,8 @@ fails. Readiness is reported only after both phases complete.
 - ByteNet 0.4.6
 - Promise 4.0.0
 - Signal 2.0.3
-- ProfileService 1.0.2
+- ProfileStore 1.0.3
+- ProfileService 1.0.2 (legacy compatibility)
 - Component 2.4.8
 - Trove 1.8.0
 - TableUtil 1.2.1
@@ -102,14 +103,17 @@ fails. Readiness is reported only after both phases complete.
 Access a bundled utility without adding another package:
 
 ```luau
-local ProfileService = Nerve.GetDependency("ProfileService")
+local ProfileStore = Nerve.GetDependency("ProfileStore")
 local Trove = Nerve.GetDependency("Trove")
 local React = Nerve.GetDependency("React")
 local ReactRoblox = Nerve.GetDependency("ReactRoblox")
 ```
 
-ProfileService is server-only in normal use. Dependencies are loaded lazily by
+ProfileStore is server-only. Dependencies are loaded lazily by
 `GetDependency`; requiring Nerve does not initialize every bundled library.
+ProfileService remains bundled only for backward compatibility and is no longer
+recommended for new projects. See the
+[ProfileStore guide](docs/profile-store.md) for session lifecycle and migration.
 Use React and ReactRoblox from a client controller to mount declarative UI into
 `PlayerGui`; see the [React UI guide](docs/react-ui.md).
 

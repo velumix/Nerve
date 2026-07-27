@@ -1,4 +1,6 @@
 Packages/
+ServerPackages/
+scripts/vendor/ServerPackages/
 DevPackages/
 *.rbxm
 *.rbxl

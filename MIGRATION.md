@@ -34,7 +34,7 @@ Signals use `Nerve.CreateSignal` or `Nerve.CreateUnreliableSignal`.
 ## Replace external packages
 
 Use `Nerve.GetDependency("Promise")`, `Nerve.GetDependency("Signal")`,
-`Nerve.GetDependency("ProfileService")`, or another included dependency.
+`Nerve.GetDependency("ProfileStore")`, or another included dependency.
 
 ## Intentional differences
 

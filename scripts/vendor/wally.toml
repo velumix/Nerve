@@ -1,0 +1,9 @@
+[package]
+name = "velumix/nerve-vendor"
+version = "1.3.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+private = true
+
+[server-dependencies]
+ProfileStore = "lm-loleris/profilestore@1.0.3"

@@ -1,6 +1,6 @@
 [package]
 name = "velumix/nerve"
-version = "1.2.0"
+version = "1.3.0"
 description = "Batteries-included Roblox framework powered by ByteNet"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
@@ -8,6 +8,26 @@ license = "MIT"
 authors = ["Velumix"]
 repository = "https://github.com/velumix/Nerve"
 include = ["src", "LICENSE", "THIRD_PARTY_NOTICES.md", "licenses"]
+exclude = [
+	".github",
+	".moonwave",
+	"aftman.toml",
+	"build",
+	"CONTRIBUTING.md",
+	"docs",
+	"moonwave.toml",
+	"nerve-test.rbxm",
+	"node_modules",
+	"package-lock.json",
+	"package.json",
+	"Packages",
+	"scripts",
+	"selene.toml",
+	"ServerPackages",
+	"stylua.toml",
+	"test.project.json",
+	"tests",
+]
 
 [dependencies]
 React = "haedrix/react@17.3.10"

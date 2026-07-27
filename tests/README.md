@@ -11,7 +11,7 @@ Open `NerveTests.rbxlx` in Roblox Studio and start a server session. The
 run prints:
 
 ```text
-[Nerve tests] Passed 4 specification(s)
+[Nerve tests] Passed 5 specification(s)
 ```
 
 The test project disables Nerve's packaged autostart so the startup integration

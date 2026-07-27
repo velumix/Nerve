@@ -21,7 +21,7 @@ as a typed contract.
 | --- | --- |
 | Lifecycle | Ordered service and controller initialization |
 | Networking | Typed ByteNet methods and directional signals |
-| Persistence | Bundled ProfileService for server-owned player data |
+| Persistence | Bundled ProfileStore for server-owned player data |
 | Async and events | Promises and signals without extra packages |
 | User interface | React and the Roblox renderer |
 | Game structure | Components, cleanup, input, timers, and data utilities |
