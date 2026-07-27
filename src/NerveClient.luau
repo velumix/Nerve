@@ -3,7 +3,9 @@
 	.Inbound ClientMiddleware?
 	.Outbound ClientMiddleware?
 	@within NerveClient
-	@private
+
+	Client middleware applied to inbound responses/signals and outbound
+	requests/signals.
 ]=]
 type Middleware = {
 	Inbound: ClientMiddleware?,
@@ -13,14 +15,15 @@ type Middleware = {
 --[=[
 	@type ClientMiddlewareFn (args: {any}) -> (shouldContinue: boolean, ...: any)
 	@within NerveClient
-	@private
+
+	Return `true` to preserve the current arguments, `true, ...` to replace
+	them, or `false` to reject the method traffic or drop the signal.
 ]=]
 type ClientMiddlewareFn = (args: { any }) -> (boolean, ...any)
 
 --[=[
 	@type ClientMiddleware {ClientMiddlewareFn}
 	@within NerveClient
-	@private
 	An array of client middleware functions.
 ]=]
 type ClientMiddleware = { ClientMiddlewareFn }
@@ -28,7 +31,9 @@ type ClientMiddleware = { ClientMiddlewareFn }
 --[=[
 	@type PerServiceMiddleware {[string]: Middleware}
 	@within NerveClient
-	@private
+
+	Per-service middleware replaces global client middleware for matching
+	service names.
 ]=]
 type PerServiceMiddleware = { [string]: Middleware }
 
@@ -66,9 +71,12 @@ type Service = {
 
 --[=[
 	@interface NerveClientOptions
+	.Middleware Middleware?
+	.PerServiceMiddleware PerServiceMiddleware?
 	@within NerveClient
 
-	Reserved compatibility options. Nerve 1.0 has no public client start options.
+	Global and per-service client middleware. `ServicePromises` remains reserved
+	for compatibility; network methods always return cancellable promises.
 ]=]
 type NerveClientOptions = {
 	ServicePromises: boolean,
@@ -384,7 +392,7 @@ function NerveClient.Start(options: NerveClientOptions?)
 	end
 
 	startPromise = Promise.try(function()
-		ByteNetRuntime.StartClient()
+		ByteNetRuntime.StartClient(selectedOptions)
 	end)
 		:andThen(function()
 			return Lifecycle.Run(controllers, "NerveInit", "controller", Promise)

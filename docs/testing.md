@@ -21,17 +21,19 @@ Open `NerveTests.rbxlx` in Roblox Studio and start a server session. The runner
 loads every `*.spec.luau` module in name order. A successful run prints:
 
 ```text
-[Nerve tests] Passed 2 specification(s)
+[Nerve tests] Passed 4 specification(s)
 ```
 
-The lifecycle suite currently verifies:
+The framework suite currently verifies:
 
 - name-ordered hook invocation;
 - support for hooks that return Nerve promises;
 - contextual rejection when a hook fails;
 - service lookup during `NerveInit`;
-- the boundary between `NerveInit`, `NerveStart`, and readiness; and
-- `OnStart()` calls registered before startup.
+- the boundary between `NerveInit`, `NerveStart`, and readiness;
+- `OnStart()` calls registered before startup;
+- middleware validation, transformation, rejection, and precedence; and
+- fixed-window and endpoint rate-limit behavior.
 
 ## Validate a contribution
 
@@ -39,7 +41,7 @@ Before opening or updating a pull request, run:
 
 ```powershell
 stylua --check src/*.luau tests/*.luau
-selene src/Lifecycle.luau src/NerveServer.luau src/NerveClient.luau tests
+selene src/Lifecycle.luau src/NetworkPolicy.luau src/Runtime.luau src/NerveServer.luau src/NerveClient.luau tests
 rojo build default.project.json --output Nerve.rbxm
 rojo build test.project.json --output NerveTests.rbxlx
 npm ci

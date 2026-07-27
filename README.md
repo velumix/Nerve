@@ -74,7 +74,8 @@ return InventoryService
 
 Nerve creates deterministic ByteNet packets from the service contract. Client
 methods return cancellable promises and include timeouts, bounded in-flight
-requests, server rate limits, and sanitized errors.
+requests, default server rate limits, executable middleware, cancelled timeout
+threads, and sanitized errors.
 
 Lifecycle startup is supervised: `NerveInit` and `NerveStart` are Promise-owned,
 and `Start()`/`OnStart()` reject with service or controller context when a hook

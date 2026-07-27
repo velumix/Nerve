@@ -3,7 +3,9 @@
 	.Inbound ServerMiddleware?
 	.Outbound ServerMiddleware?
 	@within NerveServer
-	@private
+
+	Server middleware applied to client-originated requests/signals and
+	server-originated responses/signals.
 ]=]
 type Middleware = {
 	Inbound: ServerMiddleware?,
@@ -13,14 +15,15 @@ type Middleware = {
 --[=[
 	@type ServerMiddlewareFn (player: Player, args: {any}) -> (shouldContinue: boolean, ...: any)
 	@within NerveServer
-	@private
+
+	Return `true` to preserve the current arguments, `true, ...` to replace
+	them, or `false` to reject the method traffic or drop the signal.
 ]=]
 type ServerMiddlewareFn = (player: Player, args: { any }) -> (boolean, ...any)
 
 --[=[
 	@type ServerMiddleware {ServerMiddlewareFn}
 	@within NerveServer
-	@private
 	An array of server middleware functions.
 ]=]
 type ServerMiddleware = { ServerMiddlewareFn }
@@ -29,9 +32,11 @@ type ServerMiddleware = { ServerMiddlewareFn }
 	@interface ServiceDef
 	.Name string
 	.Client table?
+	.Middleware Middleware?
 	.[any] any
 	@within NerveServer
 	Used to define a service when creating it in `CreateService`.
+	Service middleware replaces Nerve-level server middleware for this service.
 ]=]
 type ServiceDef = {
 	Name: string,
@@ -66,9 +71,10 @@ type ServiceClient = {
 
 --[=[
 	@interface NerveServerOptions
+	.Middleware Middleware?
 	@within NerveServer
 
-	Reserved compatibility options. Nerve 1.0 has no public server start options.
+	Global server middleware used by services without their own middleware.
 ]=]
 type NerveServerOptions = {
 	Middleware: Middleware?,
@@ -162,7 +168,7 @@ end
 	Defines a typed client-to-server request/response contract. Place the result
 	in a service's `Network` table using the same name as its `Client` method.
 
-	@param options {Request: Descriptor?, Response: Descriptor?, Timeout: number?, RateLimit: {Requests: number, Window: number}?}?
+	@param options {Request: Descriptor?, Response: Descriptor?, Timeout: number?, RateLimit: ({Requests: number, Window: number} | false)?}?
 	@return any
 	@tag networking
 ]=]
@@ -178,7 +184,7 @@ NerveServer.Method = ByteNetRuntime.Method
 	`Direction` to `"client"` or `"duplex"` only when needed.
 
 	@param arguments Descriptor? -- Tuple descriptor for signal arguments.
-	@param options {Direction: string?, Reliability: string?}?
+	@param options {Direction: string?, Reliability: string?, RateLimit: ({Requests: number, Window: number} | false)?}?
 	@return any
 	@tag networking
 ]=]
@@ -417,7 +423,7 @@ function NerveServer.Start(options: NerveServerOptions?)
 	end
 
 	startPromise = Promise.try(function()
-		ByteNetRuntime.StartServer(services)
+		ByteNetRuntime.StartServer(services, selectedOptions)
 	end)
 		:andThen(function()
 			return Lifecycle.Run(services, "NerveInit", "service", Promise)
