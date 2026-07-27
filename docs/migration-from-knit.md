@@ -1,11 +1,16 @@
 ---
 sidebar_position: 6
+sidebar_label: Migrate from Knit
 ---
 
 # Migrating from Knit
 
 Nerve preserves the familiar service/controller lifecycle while replacing
 Knit's remote layer with typed ByteNet contracts.
+
+The migration can be incremental. Move lifecycle names first, replace each
+remote with a typed contract, then remove the old Knit bootstraps once both
+realms start through Nerve.
 
 ## Rename the framework surface
 

@@ -1,5 +1,6 @@
 ---
 sidebar_position: 2
+sidebar_label: Services and controllers
 ---
 
 # Services and controllers
@@ -13,6 +14,16 @@ the same two-stage lifecycle:
 
 The bundled RunContext bootstraps automatically load these modules from the
 configured service and controller folders before starting Nerve.
+
+```text
+Discover modules -> NerveInit every object -> NerveStart every object -> ready
+```
+
+:::important
+Create and return lifecycle objects from their modules. Do not call
+`Nerve.Start()` inside a service or controller; the packaged bootstraps own
+startup.
+:::
 
 ## Server service
 

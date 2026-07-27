@@ -1,6 +1,6 @@
 # Nerve
 
-[![MIT License](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-65a30d.svg)](LICENSE)
 [![Documentation](https://github.com/velumix/Nerve/actions/workflows/publish-docs.yml/badge.svg)](https://velumix.github.io/Nerve/)
 
 Give your game a nervous system.

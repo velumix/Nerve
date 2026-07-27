@@ -1,12 +1,33 @@
 ---
 sidebar_position: 1
+sidebar_label: Start here
 ---
 
 # Getting started
 
-Nerve is a batteries-included Roblox framework. It gives your game a
-service/controller lifecycle and a typed ByteNet networking layer while keeping
-the package portable: everything required at runtime lives inside `Nerve`.
+Nerve gives a Roblox game one predictable foundation for lifecycle, networking,
+data, cleanup, components, input, and everyday utilities. Everything required
+at runtime lives inside the package.
+
+:::tip The short version
+Drop Nerve into `ReplicatedStorage`, organize server services and client
+controllers in the conventional folders, and declare every remote interaction
+as a typed contract.
+:::
+
+## What ships together
+
+| Layer | What Nerve provides |
+|---|---|
+| Lifecycle | Ordered service and controller initialization |
+| Networking | Typed ByteNet methods and directional signals |
+| Persistence | Bundled ProfileService for server-owned player data |
+| Async and events | Promises and signals without extra packages |
+| Game structure | Components, cleanup, input, timers, and data utilities |
+| Startup | Packaged server and client RunContext scripts |
+
+Nerve has no runtime dependency outside its own folder. A project can move the
+package between games without rebuilding a dependency tree.
 
 ## Install with Wally
 
@@ -34,6 +55,24 @@ Nerve is then available at
 
 You can also copy the repository's `src` directory into `ReplicatedStorage` as a
 ModuleScript named `Nerve`. No other runtime package is required.
+
+## Create the conventional folders
+
+Nerve starts with these locations by default:
+
+```text
+ReplicatedStorage
+|-- Packages
+|   `-- Nerve
+`-- Client
+    `-- Controllers
+
+ServerScriptService
+`-- Services
+```
+
+The folders may be empty while a project is being set up. Nerve still starts
+successfully and freezes each registry after discovery.
 
 ## Automatic startup
 
@@ -75,3 +114,13 @@ Keep startup modules in the configured folders. The bundled bootstraps require
 them before calling `Nerve.Start()`, then freeze the registries for deterministic
 initialization.
 :::
+
+## Choose your next guide
+
+| Goal | Guide |
+|---|---|
+| Create server and client systems | [Services and controllers](services-and-controllers.md) |
+| Expose a typed method or signal | [Typed networking](typed-networking.md) |
+| Describe network values precisely | [Schemas](schemas.md) |
+| Use a bundled utility | [Bundled dependencies](bundled-dependencies.md) |
+| Move an existing Knit project | [Migrating from Knit](migration-from-knit.md) |
