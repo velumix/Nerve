@@ -108,7 +108,7 @@ local NerveClient = {}
 
 	The installed Nerve version.
 ]=]
-NerveClient.Version = "1.2.0"
+NerveClient.Version = "1.3.0"
 
 --[=[
 	@prop Player Player

@@ -14,7 +14,7 @@ keeps application code independent of Nerve's internal folder layout.
 :::
 
 ```luau
-local ProfileService = Nerve.GetDependency("ProfileService")
+local ProfileStore = Nerve.GetDependency("ProfileStore")
 local Trove = Nerve.GetDependency("Trove")
 local React = Nerve.GetDependency("React")
 local ReactRoblox = Nerve.GetDependency("ReactRoblox")
@@ -28,7 +28,8 @@ needs the ModuleScript instance.
 | ByteNet | 0.4.6 | Typed, buffer-based networking |
 | Promise | 4.0.0 | Asynchronous composition and cancellation |
 | Signal | 2.0.3 | Local event dispatch |
-| ProfileService | 1.0.2 | Server-side player data persistence |
+| ProfileStore | 1.0.3 | Recommended server-side player data persistence |
+| ProfileService | 1.0.2 | Legacy persistence compatibility |
 | Component | 2.4.8 | Tag-driven component lifecycle |
 | Trove | 1.8.0 | Resource cleanup |
 | TableUtil | 1.2.1 | Common table operations |
@@ -41,8 +42,12 @@ needs the ModuleScript instance.
 | React | 17.3.10 | Declarative component and hook runtime |
 | ReactRoblox | 17.3.10 | Roblox Instance renderer for React |
 
-ProfileService is intended for server use. Never trust persisted data sent back
-from the client.
+ProfileStore is server-only. Create the store with `ProfileStore.New`, start
+player sessions with `StartSessionAsync`, and end them with `EndSession`.
+ProfileService remains available for backward compatibility, but its upstream
+project is no longer supported. Never trust persisted data sent back from the
+client. See [ProfileStore](profile-store.md) for lifecycle and migration
+guidance.
 
 React and ReactRoblox are the maintained successors to legacy Roact. Mount UI
 from a client controller so the Nerve lifecycle owns cleanup. See

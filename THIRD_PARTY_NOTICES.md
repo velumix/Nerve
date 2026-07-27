@@ -50,6 +50,14 @@ The complete license is included at
 
 Upstream: <https://github.com/MadStudioRoblox/ProfileService>
 
+## ProfileStore 1.0.3
+
+ProfileStore is licensed under the Apache License 2.0, not the MIT License.
+The complete license text is included at
+`licenses/ProfileService-APACHE-2.0.txt`.
+
+Upstream: <https://github.com/MadStudioRoblox/ProfileStore>
+
 ## React and ReactRoblox 17.3.10
 
 React Luau and its Roblox renderer are derived from React by Meta Platforms,

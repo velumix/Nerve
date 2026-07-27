@@ -5,8 +5,9 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const packageIndex = path.join(root, "Packages", "_Index");
-const destination = path.join(root, "src", "Dependencies", "_ReactPackages");
-const expectedDestination = path.join(root, "src", "Dependencies", "_ReactPackages");
+const dependenciesRoot = path.join(root, "src", "Dependencies");
+const destination = path.join(dependenciesRoot, "_ReactPackages");
+const expectedDestination = path.join(dependenciesRoot, "_ReactPackages");
 
 if (path.resolve(destination) !== path.resolve(expectedDestination)) {
   throw new Error(`Refusing unexpected materialization target: ${destination}`);
@@ -79,3 +80,18 @@ for (const packageKey of fs.readdirSync(packageIndex).sort()) {
 console.log(
   `Materialized ${materialized} React runtime packages into ${path.relative(root, destination)}`,
 );
+
+const serverPackageIndex = path.join(root, "scripts", "vendor", "ServerPackages", "_Index");
+const profileStorePackage = path.join(
+  serverPackageIndex,
+  "lm-loleris_profilestore@1.0.3",
+  "profilestore",
+);
+const profileStoreSource = path.join(profileStorePackage, "ProfileStore.luau");
+const profileStoreDestination = path.join(dependenciesRoot, "ProfileStore.luau");
+
+if (!fs.existsSync(profileStoreSource) || !fs.statSync(profileStoreSource).isFile()) {
+  throw new Error(`ProfileStore source is missing after Wally install: ${profileStoreSource}`);
+}
+fs.copyFileSync(profileStoreSource, profileStoreDestination);
+console.log(`Materialized ProfileStore 1.0.3 into ${path.relative(root, profileStoreDestination)}`);

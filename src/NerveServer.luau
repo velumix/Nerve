@@ -114,7 +114,7 @@ local NerveServer = {}
 
 	The installed Nerve version.
 ]=]
-NerveServer.Version = "1.2.0"
+NerveServer.Version = "1.3.0"
 
 --[=[
 	@prop Dependencies Folder
@@ -149,7 +149,7 @@ NerveServer.SignalClass = require(NerveServer.Dependencies.Signal)
 --[=[
 	Lazily requires one of Nerve's bundled utilities by name.
 
-	@param name string -- For example, `"ProfileService"` or `"Trove"`.
+	@param name string -- For example, `"ProfileStore"` or `"Trove"`.
 	@return any
 	@tag dependencies
 ]=]
