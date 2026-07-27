@@ -1,5 +1,5 @@
 title = "Nerve"
-description = "A batteries-included Roblox framework with typed ByteNet networking"
+description = "A batteries-included Roblox framework with typed ByteNet networking and React UI"
 gitRepoUrl = "https://github.com/velumix/Nerve"
 gitSourceBranch = "main"
 changelog = false
@@ -19,7 +19,7 @@ includeReadme = true
 
 [[home.features]]
 title = "Everything in one package"
-description = "Services, controllers, networking, profiles, promises, signals, cleanup, components, input, and data utilities travel together."
+description = "Services, controllers, networking, React UI, profiles, promises, signals, cleanup, components, input, and data utilities travel together."
 
 [[home.features]]
 title = "Contracts become packets"

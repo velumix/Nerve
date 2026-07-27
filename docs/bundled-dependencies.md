@@ -16,6 +16,8 @@ keeps application code independent of Nerve's internal folder layout.
 ```luau
 local ProfileService = Nerve.GetDependency("ProfileService")
 local Trove = Nerve.GetDependency("Trove")
+local React = Nerve.GetDependency("React")
+local ReactRoblox = Nerve.GetDependency("ReactRoblox")
 ```
 
 The same modules are also present under `Nerve.Dependencies` for tooling that
@@ -36,9 +38,15 @@ needs the ModuleScript instance.
 | EnumList | 2.1.0 | Custom enum-like values |
 | Streamable | 1.2.4 | Streaming-aware instance access |
 | Symbol | 2.0.1 | Unique symbolic keys |
+| React | 17.3.10 | Declarative component and hook runtime |
+| ReactRoblox | 17.3.10 | Roblox Instance renderer for React |
 
 ProfileService is intended for server use. Never trust persisted data sent back
 from the client.
+
+React and ReactRoblox are the maintained successors to legacy Roact. Mount UI
+from a client controller so the Nerve lifecycle owns cleanup. See
+[React UI](react-ui.md) for the complete pattern.
 
 Nerve itself is MIT licensed. Bundled code remains under its original license;
 see the repository's `THIRD_PARTY_NOTICES.md` and `licenses` directory for the

@@ -18,11 +18,12 @@ as a typed contract.
 ## What ships together
 
 | Layer | What Nerve provides |
-|---|---|
+| --- | --- |
 | Lifecycle | Ordered service and controller initialization |
 | Networking | Typed ByteNet methods and directional signals |
 | Persistence | Bundled ProfileService for server-owned player data |
 | Async and events | Promises and signals without extra packages |
+| User interface | React and the Roblox renderer |
 | Game structure | Components, cleanup, input, timers, and data utilities |
 | Startup | Packaged server and client RunContext scripts |
 
@@ -35,7 +36,7 @@ Add Nerve to your `wally.toml`:
 
 ```toml
 [dependencies]
-Nerve = "velumix/nerve@1.1.0"
+Nerve = "velumix/nerve@1.2.0"
 ```
 
 Run `wally install`, then map the package into `ReplicatedStorage` with Rojo:
@@ -118,9 +119,10 @@ initialization.
 ## Choose your next guide
 
 | Goal | Guide |
-|---|---|
+| --- | --- |
 | Create server and client systems | [Services and controllers](services-and-controllers.md) |
 | Expose a typed method or signal | [Typed networking](typed-networking.md) |
 | Describe network values precisely | [Schemas](schemas.md) |
 | Use a bundled utility | [Bundled dependencies](bundled-dependencies.md) |
+| Build declarative UI | [React UI](react-ui.md) |
 | Move an existing Knit project | [Migrating from Knit](migration-from-knit.md) |

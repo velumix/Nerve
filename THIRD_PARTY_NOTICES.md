@@ -50,6 +50,19 @@ The complete license is included at
 
 Upstream: <https://github.com/MadStudioRoblox/ProfileService>
 
+## React and ReactRoblox 17.3.10
+
+React Luau and its Roblox renderer are derived from React by Meta Platforms,
+Inc. and adapted for Roblox. The bundled Wally distribution is maintained under
+the `haedrix` scope and identifies Roblox's React Luau repository as upstream.
+
+Licensed under the MIT License.
+
+Upstream: <https://github.com/Roblox/react-luau>
+
+The React runtime also includes LuauPolyfill, SafeFlags, and their supporting
+modules, all distributed under the MIT License.
+
 ## MIT license text for bundled MIT works
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
