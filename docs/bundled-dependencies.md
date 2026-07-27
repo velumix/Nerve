@@ -1,11 +1,17 @@
 ---
 sidebar_position: 5
+sidebar_label: Bundled dependencies
 ---
 
 # Bundled dependencies
 
 Nerve is deliberately self-contained. Requiring Nerve does not initialize every
 utility; bundled modules load lazily when requested.
+
+:::tip
+Use `Nerve.GetDependency(name)` instead of reaching into the package tree. It
+keeps application code independent of Nerve's internal folder layout.
+:::
 
 ```luau
 local ProfileService = Nerve.GetDependency("ProfileService")

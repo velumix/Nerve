@@ -1,4 +1,5 @@
 title = "Nerve"
+description = "A batteries-included Roblox framework with typed ByteNet networking"
 gitRepoUrl = "https://github.com/velumix/Nerve"
 gitSourceBranch = "main"
 changelog = false
@@ -17,21 +18,16 @@ enabled = true
 includeReadme = true
 
 [[home.features]]
-title = "One package"
-description = "Services, controllers, ByteNet networking, persistence, promises, signals, cleanup, components, input, and data utilities ship together."
+title = "Everything in one package"
+description = "Services, controllers, networking, profiles, promises, signals, cleanup, components, input, and data utilities travel together."
 
 [[home.features]]
-title = "Typed networking"
-description = "Declare schemas next to service contracts and let Nerve construct deterministic ByteNet packets for methods and signals."
+title = "Contracts become packets"
+description = "Declare typed methods and signals beside each service. Nerve turns the contract into deterministic ByteNet packets for both realms."
 
 [[home.features]]
-title = "Production safeguards"
-description = "Request timeouts, bounded in-flight calls, server rate limits, sanitized errors, and explicit signal direction are built in."
-
-[[navbar.items]]
-href = "https://github.com/velumix/Nerve"
-label = "GitHub"
-position = "right"
+title = "Safe by default"
+description = "Timeouts, bounded requests, rate limits, sanitized errors, schema validation, and explicit signal direction are part of the framework."
 
 [[footer.links]]
 title = "Nerve"

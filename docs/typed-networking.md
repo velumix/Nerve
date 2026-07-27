@@ -1,5 +1,6 @@
 ---
 sidebar_position: 3
+sidebar_label: Typed networking
 ---
 
 # Typed networking
@@ -7,6 +8,13 @@ sidebar_position: 3
 Nerve builds deterministic ByteNet packets from a service's `Network` contract.
 The server publishes a compact manifest; clients reconstruct the same packet
 definitions without receiving server service source.
+
+| Contract | Direction | Client surface |
+|---|---|---|
+| `Nerve.Method` | Client request to server response | Cancellable promise |
+| Server signal | Server to one or more clients | `Connect` |
+| Client signal | Client to server | `Fire` |
+| Duplex signal | Both directions | `Connect` and `Fire` |
 
 ## Request and response methods
 
