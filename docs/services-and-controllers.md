@@ -9,8 +9,8 @@ Services organize server systems. Controllers organize client systems. Both use
 the same two-stage lifecycle:
 
 1. `NerveInit` runs for every object and may yield.
-2. `NerveStart` runs after all initialization completes and is spawned in its
-   own task.
+2. `NerveStart` runs after all initialization completes.
+3. Nerve reports ready only after every lifecycle hook finishes successfully.
 
 The bundled RunContext bootstraps automatically load these modules from the
 configured service and controller folders before starting Nerve.
@@ -18,6 +18,14 @@ configured service and controller folders before starting Nerve.
 ```text
 Discover modules -> NerveInit every object -> NerveStart every object -> ready
 ```
+
+Hooks in each phase begin in object-name order and run concurrently through
+cancellable promises. A hook may return a Nerve Promise; startup adopts that
+promise and waits for it. If a hook throws or returns a rejected promise,
+`Start()` and `OnStart()` reject with the object's name and failed phase.
+
+`NerveStart` should connect events and launch intentionally long-lived work,
+then return. Do not keep the hook itself alive as a permanent loop.
 
 :::important
 Create and return lifecycle objects from their modules. Do not call
@@ -87,4 +95,5 @@ Nerve.OnStart():andThen(function()
 end):catch(warn)
 ```
 
-`Start` and `OnStart` return Nerve's bundled Promise implementation.
+`Start` and `OnStart` return Nerve's bundled Promise implementation. Both
+resolve at the same readiness boundary and reject on lifecycle failure.

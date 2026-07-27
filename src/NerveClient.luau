@@ -100,7 +100,7 @@ local NerveClient = {}
 
 	The installed Nerve version.
 ]=]
-NerveClient.Version = "1.1.0"
+NerveClient.Version = "1.2.0"
 
 --[=[
 	@prop Player Player
@@ -132,6 +132,7 @@ NerveClient.Util = NerveClient.Dependencies
 
 local Promise = require(NerveClient.Dependencies.Promise)
 local ByteNetRuntime = require(script.Parent.Runtime)
+local Lifecycle = require(script.Parent.Lifecycle)
 local Schema = require(script.Parent.Schema)
 
 NerveClient.Schema = Schema
@@ -159,7 +160,22 @@ local controllers: { [string]: Controller } = {}
 local services: { [string]: Service } = {}
 local started = false
 local startedComplete = false
-local onStartedComplete = Instance.new("BindableEvent")
+local startFailed = false
+local startFailure = nil
+local startPromise = nil
+local startWaiters = {}
+
+local function settleStartWaiters(succeeded: boolean, reason: any?)
+	for _, waiter in startWaiters do
+		if succeeded then
+			waiter.Resolve()
+		else
+			waiter.Reject(reason)
+		end
+	end
+
+	table.clear(startWaiters)
+end
 
 local function DoesControllerExist(controllerName: string): boolean
 	local controller: Controller? = controllers[controllerName]
@@ -367,44 +383,27 @@ function NerveClient.Start(options: NerveClientOptions?)
 		selectedOptions.PerServiceMiddleware = {}
 	end
 
-	ByteNetRuntime.StartClient()
-
-	return Promise.new(function(resolve)
-		-- Init:
-		local promisesStartControllers = {}
-
-		for _, controller in controllers do
-			if type(controller.NerveInit) == "function" then
-				table.insert(
-					promisesStartControllers,
-					Promise.new(function(r)
-						debug.setmemorycategory(controller.Name)
-						controller:NerveInit()
-						r()
-					end)
-				)
-			end
-		end
-
-		resolve(Promise.all(promisesStartControllers))
-	end):andThen(function()
-		-- Start:
-		for _, controller in controllers do
-			if type(controller.NerveStart) == "function" then
-				task.spawn(function()
-					debug.setmemorycategory(controller.Name)
-					controller:NerveStart()
-				end)
-			end
-		end
-
-		startedComplete = true
-		onStartedComplete:Fire()
-
-		task.defer(function()
-			onStartedComplete:Destroy()
-		end)
+	startPromise = Promise.try(function()
+		ByteNetRuntime.StartClient()
 	end)
+		:andThen(function()
+			return Lifecycle.Run(controllers, "NerveInit", "controller", Promise)
+		end)
+		:andThen(function()
+			return Lifecycle.Run(controllers, "NerveStart", "controller", Promise)
+		end)
+		:andThen(function()
+			startedComplete = true
+			settleStartWaiters(true)
+		end)
+		:catch(function(reason)
+			startFailed = true
+			startFailure = reason
+			settleStartWaiters(false, reason)
+			return Promise.reject(reason)
+		end)
+
+	return startPromise
 end
 
 --[=[
@@ -423,8 +422,23 @@ end
 function NerveClient.OnStart()
 	if startedComplete then
 		return Promise.resolve()
+	elseif startFailed then
+		return Promise.reject(startFailure)
 	else
-		return Promise.fromEvent(onStartedComplete.Event)
+		return Promise.new(function(resolve, reject, onCancel)
+			local waiter = {
+				Resolve = resolve,
+				Reject = reject,
+			}
+			table.insert(startWaiters, waiter)
+
+			onCancel(function()
+				local index = table.find(startWaiters, waiter)
+				if index then
+					table.remove(startWaiters, index)
+				end
+			end)
+		end)
 	end
 end
 

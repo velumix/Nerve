@@ -1,0 +1,19 @@
+{
+  "name": "NerveTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Nerve": {
+        "$path": "src",
+        "$attributes": {
+          "AutoStart": false
+        }
+      }
+    },
+    "ServerScriptService": {
+      "NerveTests": {
+        "$path": "tests"
+      }
+    }
+  }
+}

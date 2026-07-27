@@ -18,6 +18,9 @@ Read the [Nerve documentation](https://velumix.github.io/Nerve/) for the
 installation guide, lifecycle model, typed networking, schemas, bundled
 dependencies, migration guide, and complete API reference.
 
+Framework contributors should also read [CONTRIBUTING.md](CONTRIBUTING.md) and
+the [testing and validation guide](docs/testing.md).
+
 ## Install
 
 Copy `src` into `ReplicatedStorage` as a ModuleScript named `Nerve`, or install
@@ -72,6 +75,10 @@ return InventoryService
 Nerve creates deterministic ByteNet packets from the service contract. Client
 methods return cancellable promises and include timeouts, bounded in-flight
 requests, server rate limits, and sanitized errors.
+
+Lifecycle startup is supervised: `NerveInit` and `NerveStart` are Promise-owned,
+and `Start()`/`OnStart()` reject with service or controller context when a hook
+fails. Readiness is reported only after both phases complete.
 
 ## Included dependencies
 

@@ -108,7 +108,7 @@ local NerveServer = {}
 
 	The installed Nerve version.
 ]=]
-NerveServer.Version = "1.1.0"
+NerveServer.Version = "1.2.0"
 
 --[=[
 	@prop Dependencies Folder
@@ -132,6 +132,7 @@ NerveServer.Util = NerveServer.Dependencies
 
 local Promise = require(NerveServer.Dependencies.Promise)
 local ByteNetRuntime = require(script.Parent.Runtime)
+local Lifecycle = require(script.Parent.Lifecycle)
 local Schema = require(script.Parent.Schema)
 
 NerveServer.Schema = Schema
@@ -186,7 +187,22 @@ NerveServer.Signal = ByteNetRuntime.Signal
 local services: { [string]: Service } = {}
 local started = false
 local startedComplete = false
-local onStartedComplete = Instance.new("BindableEvent")
+local startFailed = false
+local startFailure = nil
+local startPromise = nil
+local startWaiters = {}
+
+local function settleStartWaiters(succeeded: boolean, reason: any?)
+	for _, waiter in startWaiters do
+		if succeeded then
+			waiter.Resolve()
+		else
+			waiter.Reject(reason)
+		end
+	end
+
+	table.clear(startWaiters)
+end
 
 local function DoesServiceExist(serviceName: string): boolean
 	local service: Service? = services[serviceName]
@@ -400,43 +416,27 @@ function NerveServer.Start(options: NerveServerOptions?)
 		end
 	end
 
-	return Promise.new(function(resolve)
+	startPromise = Promise.try(function()
 		ByteNetRuntime.StartServer(services)
-
-		-- Init:
-		local promisesInitServices = {}
-		for _, service in services do
-			if type(service.NerveInit) == "function" then
-				table.insert(
-					promisesInitServices,
-					Promise.new(function(r)
-						debug.setmemorycategory(service.Name)
-						service:NerveInit()
-						r()
-					end)
-				)
-			end
-		end
-
-		resolve(Promise.all(promisesInitServices))
-	end):andThen(function()
-		-- Start:
-		for _, service in services do
-			if type(service.NerveStart) == "function" then
-				task.spawn(function()
-					debug.setmemorycategory(service.Name)
-					service:NerveStart()
-				end)
-			end
-		end
-
-		startedComplete = true
-		onStartedComplete:Fire()
-
-		task.defer(function()
-			onStartedComplete:Destroy()
-		end)
 	end)
+		:andThen(function()
+			return Lifecycle.Run(services, "NerveInit", "service", Promise)
+		end)
+		:andThen(function()
+			return Lifecycle.Run(services, "NerveStart", "service", Promise)
+		end)
+		:andThen(function()
+			startedComplete = true
+			settleStartWaiters(true)
+		end)
+		:catch(function(reason)
+			startFailed = true
+			startFailure = reason
+			settleStartWaiters(false, reason)
+			return Promise.reject(reason)
+		end)
+
+	return startPromise
 end
 
 --[=[
@@ -455,8 +455,23 @@ end
 function NerveServer.OnStart()
 	if startedComplete then
 		return Promise.resolve()
+	elseif startFailed then
+		return Promise.reject(startFailure)
 	else
-		return Promise.fromEvent(onStartedComplete.Event)
+		return Promise.new(function(resolve, reject, onCancel)
+			local waiter = {
+				Resolve = resolve,
+				Reject = reject,
+			}
+			table.insert(startWaiters, waiter)
+
+			onCancel(function()
+				local index = table.find(startWaiters, waiter)
+				if index then
+					table.remove(startWaiters, index)
+				end
+			end)
+		end)
 	end
 end
 
