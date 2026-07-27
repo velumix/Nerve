@@ -17,7 +17,6 @@ keeps application code independent of Nerve's internal folder layout.
 local ProfileStore = Nerve.GetDependency("ProfileStore")
 local Trove = Nerve.GetDependency("Trove")
 local React = Nerve.GetDependency("React")
-local ReactRoblox = Nerve.GetDependency("ReactRoblox")
 ```
 
 The same modules are also present under `Nerve.Dependencies` for tooling that
@@ -39,8 +38,7 @@ needs the ModuleScript instance.
 | EnumList | 2.1.0 | Custom enum-like values |
 | Streamable | 1.2.4 | Streaming-aware instance access |
 | Symbol | 2.0.1 | Unique symbolic keys |
-| React | 17.3.10 | Declarative component and hook runtime |
-| ReactRoblox | 17.3.10 | Roblox Instance renderer for React |
+| React | 17.3.10 | Declarative Roblox UI, components, and hooks |
 
 ProfileStore is server-only. Create the store with `ProfileStore.New`, start
 player sessions with `StartSessionAsync`, and end them with `EndSession`.
@@ -49,9 +47,9 @@ project is no longer supported. Never trust persisted data sent back from the
 client. See [ProfileStore](profile-store.md) for lifecycle and migration
 guidance.
 
-React and ReactRoblox are the maintained successors to legacy Roact. Mount UI
-from a client controller so the Nerve lifecycle owns cleanup. See
-[React UI](react-ui.md) for the complete pattern.
+React is the maintained successor to legacy Roact. Its Roblox renderer is
+bundled automatically. Mount UI from a client controller so the Nerve lifecycle
+owns cleanup. See [React UI](react-ui.md) for the complete pattern.
 
 Nerve itself is MIT licensed. Bundled code remains under its original license;
 see the repository's `THIRD_PARTY_NOTICES.md` and `licenses` directory for the

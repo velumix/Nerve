@@ -98,7 +98,6 @@ fails. Readiness is reported only after both phases complete.
 - Streamable 1.2.4
 - Symbol 2.0.1
 - React 17.3.10
-- ReactRoblox 17.3.10
 
 Access a bundled utility without adding another package:
 
@@ -106,7 +105,6 @@ Access a bundled utility without adding another package:
 local ProfileStore = Nerve.GetDependency("ProfileStore")
 local Trove = Nerve.GetDependency("Trove")
 local React = Nerve.GetDependency("React")
-local ReactRoblox = Nerve.GetDependency("ReactRoblox")
 ```
 
 ProfileStore is server-only. Dependencies are loaded lazily by
@@ -114,8 +112,8 @@ ProfileStore is server-only. Dependencies are loaded lazily by
 ProfileService remains bundled only for backward compatibility and is no longer
 recommended for new projects. See the
 [ProfileStore guide](docs/profile-store.md) for session lifecycle and migration.
-Use React and ReactRoblox from a client controller to mount declarative UI into
-`PlayerGui`; see the [React UI guide](docs/react-ui.md).
+Use React from a client controller to build declarative UI in `PlayerGui`; see
+the [React UI guide](docs/react-ui.md).
 
 ## License
 
