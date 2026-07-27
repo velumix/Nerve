@@ -1,6 +1,17 @@
 name: Publish documentation
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/publish-docs.yml"
+      - ".moonwave/**"
+      - "docs/**"
+      - "src/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "moonwave.toml"
+      - "package.json"
+      - "package-lock.json"
   push:
     branches:
       - main
@@ -10,6 +21,7 @@ on:
       - "docs/**"
       - "src/**"
       - "README.md"
+      - "CONTRIBUTING.md"
       - "moonwave.toml"
       - "package.json"
       - "package-lock.json"
@@ -21,16 +33,16 @@ permissions:
   id-token: write
 
 concurrency:
-  group: nerve-docs
+  group: nerve-docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -42,12 +54,15 @@ jobs:
         run: npm run docs:build
 
       - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: build
 
   deploy:
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

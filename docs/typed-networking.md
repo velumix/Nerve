@@ -62,8 +62,14 @@ end):catch(warn)
 ```
 
 Client calls are cancellable promises. Nerve enforces the declared timeout, caps
-each endpoint at 128 in-flight client calls, applies optional per-player server
-rate limits, and sends sanitized error codes instead of server traces.
+each endpoint at 128 in-flight client calls, applies per-player server rate
+limits, and sends sanitized error codes instead of server traces. Completing,
+cancelling, or rejecting a request also cancels its timeout thread immediately.
+Server handler promises are cancelled when their player leaves.
+
+Methods default to 30 requests per player per second. Override that policy with
+`RateLimit = { Requests = number, Window = seconds }`, or explicitly disable it
+with `RateLimit = false`.
 
 `Request` and `Response` default to `Schema.Packed` for gradual migration, but
 explicit schemas are recommended.
@@ -114,6 +120,10 @@ local AimService = Nerve.CreateService({
 			{
 				Direction = "client",
 				Reliability = "unreliable",
+				RateLimit = {
+					Requests = 30,
+					Window = 1,
+				},
 			}
 		),
 	},
@@ -122,6 +132,46 @@ local AimService = Nerve.CreateService({
 
 A client-directed signal exposes `:Fire(...)` on the client and
 `:Connect(function(player, ...) end)` on the server.
+
+Client-directed and duplex signals default to 60 events per player per second.
+Excess events are dropped before middleware and game callbacks run. Configure
+or disable the limit with the same `RateLimit` option used by methods.
+
+## Middleware
+
+Middleware can validate, reject, or transform traffic before it reaches game
+code. Configure global middleware when starting Nerve:
+
+```luau
+Nerve.Start({
+	Middleware = {
+		Inbound = {
+			function(player, args)
+				if not player.Character then
+					return false
+				end
+				return true
+			end,
+		},
+	},
+})
+```
+
+Server middleware receives `(player, args)`. Client middleware receives
+`args`. Return `true` to continue with the current packed argument table,
+`true, ...` to replace its values for the next middleware and endpoint, or
+`false` to stop processing. Rejected methods return a
+`MIDDLEWARE_REJECTED` error; rejected signals are dropped.
+
+The server applies inbound middleware to client requests and signals, and
+outbound middleware to responses and server signals. The client applies the
+inverse sides locally. A service's `Middleware` replaces global server
+middleware for that service. `PerServiceMiddleware[serviceName]` replaces
+global client middleware for the matching client proxy.
+
+Middleware is a policy layer, not a replacement for authoritative game checks.
+Keep ownership, distance, inventory, cooldown, and state validation in
+server-owned gameplay systems.
 
 :::caution
 Schemas reduce bandwidth and reject malformed serialization shapes, but they do

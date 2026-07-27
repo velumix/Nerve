@@ -10,6 +10,7 @@ local ByteNet = require(Dependencies.ByteNet)
 local ByteNetColor3 = require(Dependencies.ByteNet.dataTypes.color3)()
 local Promise = require(Dependencies.Promise)
 local LocalSignal = require(Dependencies.Signal)
+local NetworkPolicy = require(script.Parent.NetworkPolicy)
 local Schema = require(script.Parent.Schema)
 
 local MANIFEST_NAME = "NerveManifest"
@@ -17,6 +18,14 @@ local NAMESPACE_NAME = "Nerve.ByteNet.v1"
 local MAX_PACKETS = 240
 local DEFAULT_TIMEOUT = 10
 local DEFAULT_MAX_IN_FLIGHT = 128
+local DEFAULT_METHOD_RATE_LIMIT = {
+	requests = 30,
+	window = 1,
+}
+local DEFAULT_SIGNAL_RATE_LIMIT = {
+	requests = 60,
+	window = 1,
+}
 
 type Descriptor = Schema.Descriptor
 type Endpoint = {
@@ -50,10 +59,11 @@ local propertyMarkerTag = {}
 local clientManifest: Manifest? = nil
 local clientPackets: { [string]: any }? = nil
 local clientServices: { [string]: any } = {}
+local clientOptions: any = nil
 local requestId = 0
 
 local function copyRateLimit(input: any)
-	if input == nil then
+	if input == nil or input == false then
 		return nil
 	end
 	assert(type(input) == "table", "RateLimit must be a table")
@@ -84,7 +94,7 @@ function Runtime.Method(options: any?): any
 		request = request,
 		response = response,
 		timeout = timeout,
-		rateLimit = copyRateLimit(resolved.RateLimit),
+		rateLimit = copyRateLimit(if resolved.RateLimit == nil then DEFAULT_METHOD_RATE_LIMIT else resolved.RateLimit),
 	})
 end
 
@@ -108,6 +118,7 @@ function Runtime.Signal(arguments: Descriptor?, options: any?): any
 		arguments = schema,
 		reliability = reliability,
 		direction = direction,
+		rateLimit = copyRateLimit(if resolved.RateLimit == nil then DEFAULT_SIGNAL_RATE_LIMIT else resolved.RateLimit),
 	})
 end
 
@@ -311,6 +322,7 @@ local function descriptorFromSignal(value: any): Endpoint
 		arguments = value.arguments,
 		reliability = value.reliability,
 		direction = value.direction,
+		rateLimit = value.rateLimit,
 	}
 end
 
@@ -368,17 +380,53 @@ local function safeError(message: any): string
 	return if #text > 240 then text:sub(1, 240) .. "..." else text
 end
 
-local function makeServerSignal(endpoint: Endpoint, packets: { [string]: any }, serviceName: string, name: string)
+local function makeServerSignal(
+	service: any,
+	endpoint: Endpoint,
+	packets: { [string]: any },
+	name: string,
+	options: any,
+	rateState: { [string]: { [Player]: any } }
+)
+	local serviceName = service.Name
+	local endpointName = `{serviceName}.{name}`
 	local descriptor = endpoint.arguments :: Descriptor
 	local outbound = packets[endpointKey(serviceName, name, "server")]
 	local inbound = packets[endpointKey(serviceName, name, "client")]
 	local localSignal = if inbound then LocalSignal.new() else nil
+	local middleware = NetworkPolicy.ResolveMiddleware(options and options.Middleware, service.Middleware)
+	local inboundMiddleware = if middleware then middleware.Inbound else nil
+	local outboundMiddleware = if middleware then middleware.Outbound else nil
+	local signalRateState = setmetatable({}, { __mode = "k" })
+	rateState[endpointName] = signalRateState
+
+	local function filterOutbound(player: Player, args: { [any]: any }): (boolean, { [any]: any })
+		local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, outboundMiddleware, player, args)
+		if not succeeded then
+			warn(`[Nerve/ByteNet] {endpointName} outbound middleware failed: {tostring(allowed)}`)
+			return false, args
+		end
+		return allowed, filteredArgs
+	end
+
 	if inbound then
 		inbound.listen(function(payload, player)
-			if player then
-				local args = decode(descriptor, payload)
+			if not player or player.Parent ~= Players then
+				return
+			end
+			if not NetworkPolicy.CheckRate(signalRateState, player, endpoint.rateLimit, os.clock()) then
+				return
+			end
+
+			local args = decode(descriptor, payload)
+			local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, player, args)
+			if not succeeded then
+				warn(`[Nerve/ByteNet] {endpointName} inbound middleware failed: {tostring(allowed)}`)
+				return
+			end
+			if allowed then
 				local signal = localSignal :: any
-				signal:Fire(player, table.unpack(args, 1, args.n))
+				signal:Fire(player, table.unpack(filteredArgs, 1, filteredArgs.n))
 			end
 		end)
 	end
@@ -389,19 +437,54 @@ local function makeServerSignal(endpoint: Endpoint, packets: { [string]: any }, 
 	end
 	function wrapper:Fire(player: Player, ...)
 		assert(outbound, `{serviceName}.{name} cannot send server traffic`)
-		outbound.sendTo(encode(descriptor, table.pack(...)), player)
+		local allowed, args = filterOutbound(player, table.pack(...))
+		if allowed then
+			outbound.sendTo(encode(descriptor, args), player)
+		end
 	end
 	function wrapper:FireAll(...)
 		assert(outbound, `{serviceName}.{name} cannot send server traffic`)
-		outbound.sendToAll(encode(descriptor, table.pack(...)))
+		local args = table.pack(...)
+		if not outboundMiddleware then
+			outbound.sendToAll(encode(descriptor, args))
+			return
+		end
+		for _, player in Players:GetPlayers() do
+			local allowed, filteredArgs = filterOutbound(player, args)
+			if allowed then
+				outbound.sendTo(encode(descriptor, filteredArgs), player)
+			end
+		end
 	end
 	function wrapper:FireExcept(player: Player, ...)
 		assert(outbound, `{serviceName}.{name} cannot send server traffic`)
-		outbound.sendToAllExcept(encode(descriptor, table.pack(...)), player)
+		local args = table.pack(...)
+		if not outboundMiddleware then
+			outbound.sendToAllExcept(encode(descriptor, args), player)
+			return
+		end
+		for _, recipient in Players:GetPlayers() do
+			if recipient ~= player then
+				local allowed, filteredArgs = filterOutbound(recipient, args)
+				if allowed then
+					outbound.sendTo(encode(descriptor, filteredArgs), recipient)
+				end
+			end
+		end
 	end
 	function wrapper:FireList(players: { Player }, ...)
 		assert(outbound, `{serviceName}.{name} cannot send server traffic`)
-		outbound.sendToList(encode(descriptor, table.pack(...)), players)
+		local args = table.pack(...)
+		if not outboundMiddleware then
+			outbound.sendToList(encode(descriptor, args), players)
+			return
+		end
+		for _, player in players do
+			local allowed, filteredArgs = filterOutbound(player, args)
+			if allowed then
+				outbound.sendTo(encode(descriptor, filteredArgs), player)
+			end
+		end
 	end
 	function wrapper:Destroy()
 		if localSignal then
@@ -416,7 +499,9 @@ local function bindServerMethod(
 	name: string,
 	endpoint: Endpoint,
 	packets: { [string]: any },
-	rateState: { [string]: { [Player]: any } }
+	rateState: { [string]: { [Player]: any } },
+	options: any,
+	activeRequests: { [Player]: { [any]: boolean } }
 )
 	local requestPacket = packets[endpointKey(service.Name, name, "request")]
 	local successPacket = packets[endpointKey(service.Name, name, "success")]
@@ -425,36 +510,28 @@ local function bindServerMethod(
 	local responseDescriptor = endpoint.response :: Descriptor
 	local endpointName = `{service.Name}.{name}`
 	rateState[endpointName] = setmetatable({}, { __mode = "k" })
+	local middleware = NetworkPolicy.ResolveMiddleware(options and options.Middleware, service.Middleware)
+	local inboundMiddleware = if middleware then middleware.Inbound else nil
+	local outboundMiddleware = if middleware then middleware.Outbound else nil
 
 	requestPacket.listen(function(request, player)
 		if not player or player.Parent ~= Players then
 			return
 		end
-		local limit = endpoint.rateLimit
-		if limit then
-			local now = os.clock()
-			local state = rateState[endpointName][player]
-			if not state or now - state.started >= limit.window then
-				state = { started = now, count = 0 }
-				rateState[endpointName][player] = state
-			end
-			state.count += 1
-			if state.count > limit.requests then
-				errorPacket.sendTo({
-					id = request.id,
-					code = "RATE_LIMITED",
-					message = "Too many requests",
-				}, player)
-				return
-			end
+		if not NetworkPolicy.CheckRate(rateState[endpointName], player, endpoint.rateLimit, os.clock()) then
+			errorPacket.sendTo({
+				id = request.id,
+				code = "RATE_LIMITED",
+				message = "Too many requests",
+			}, player)
+			return
 		end
 
 		local args = decode(requestDescriptor, request.payload)
-		local results = table.pack(xpcall(function()
-			return service.Client[name](service.Client, player, table.unpack(args, 1, args.n))
-		end, debug.traceback))
-		if not results[1] then
-			warn(`[Nerve/ByteNet] {endpointName} failed: {results[2]}`)
+		local middlewareSucceeded, allowed, filteredArgs =
+			pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, player, args)
+		if not middlewareSucceeded then
+			warn(`[Nerve/ByteNet] {endpointName} inbound middleware failed: {tostring(allowed)}`)
 			errorPacket.sendTo({
 				id = request.id,
 				code = "SERVER_ERROR",
@@ -462,48 +539,129 @@ local function bindServerMethod(
 			}, player)
 			return
 		end
-		local values = table.create(math.max(results.n - 1, 0))
-		values.n = results.n - 1
-		for index = 2, results.n do
-			values[index - 1] = results[index]
+		if not allowed then
+			errorPacket.sendTo({
+				id = request.id,
+				code = "MIDDLEWARE_REJECTED",
+				message = "The request was rejected",
+			}, player)
+			return
 		end
-		successPacket.sendTo({
-			id = request.id,
-			payload = encode(responseDescriptor, values),
-		}, player)
+
+		local operation = Promise.try(function()
+			return service.Client[name](service.Client, player, table.unpack(filteredArgs, 1, filteredArgs.n))
+		end)
+			:andThen(function(...)
+				if player.Parent ~= Players then
+					return
+				end
+
+				local values = table.pack(...)
+				local outboundSucceeded, outboundAllowed, outboundValues =
+					pcall(NetworkPolicy.RunMiddleware, outboundMiddleware, player, values)
+				if not outboundSucceeded then
+					error(`outbound middleware failed: {tostring(outboundAllowed)}`)
+				end
+				if not outboundAllowed then
+					errorPacket.sendTo({
+						id = request.id,
+						code = "MIDDLEWARE_REJECTED",
+						message = "The response was rejected",
+					}, player)
+					return
+				end
+
+				successPacket.sendTo({
+					id = request.id,
+					payload = encode(responseDescriptor, outboundValues),
+				}, player)
+			end)
+			:catch(function(reason)
+				if player.Parent == Players then
+					warn(`[Nerve/ByteNet] {endpointName} failed: {tostring(reason)}`)
+					errorPacket.sendTo({
+						id = request.id,
+						code = "SERVER_ERROR",
+						message = "The server could not complete the request",
+					}, player)
+				end
+			end)
+
+		local playerRequests = activeRequests[player]
+		if not playerRequests then
+			playerRequests = {}
+			activeRequests[player] = playerRequests
+		end
+		playerRequests[operation] = true
+		operation:finally(function()
+			playerRequests[operation] = nil
+		end)
 	end)
 end
 
-function Runtime.StartServer(services: { [string]: any }): ()
+function Runtime.StartServer(services: { [string]: any }, options: any?): ()
 	assert(RunService:IsServer(), "StartServer can only run on the server")
+	NetworkPolicy.ValidateMiddleware(options and options.Middleware, "Nerve server middleware")
+	for serviceName, service in services do
+		NetworkPolicy.ValidateMiddleware(service.Middleware, `Service "{serviceName}" middleware`)
+	end
+
 	local manifest = buildManifest(services)
 	local packets = definePackets(manifest)
 	-- Publish last. Waiting for the manifest must guarantee that ByteNet has
 	-- already replicated its namespace metadata to every client.
 	publishManifest(manifest)
 	local rateState = {}
+	local activeRequests = setmetatable({}, { __mode = "k" })
+	Players.PlayerRemoving:Connect(function(player)
+		local playerRequests = activeRequests[player]
+		if not playerRequests then
+			return
+		end
+
+		activeRequests[player] = nil
+		for operation in playerRequests do
+			operation:cancel()
+		end
+	end)
+
 	for serviceName, endpoints in manifest.services do
 		local service = services[serviceName]
 		for name, endpoint in endpoints do
 			if endpoint.kind == "method" then
-				bindServerMethod(service, name, endpoint, packets, rateState)
+				bindServerMethod(service, name, endpoint, packets, rateState, options, activeRequests)
 			else
-				service.Client[name] = makeServerSignal(endpoint, packets, serviceName, name)
+				service.Client[name] = makeServerSignal(service, endpoint, packets, name, options, rateState)
 			end
 		end
 	end
 end
 
-local function makeClientSignal(endpoint: Endpoint, packets: { [string]: any }, serviceName: string, name: string)
+local function makeClientSignal(
+	endpoint: Endpoint,
+	packets: { [string]: any },
+	serviceName: string,
+	name: string,
+	middleware: any
+)
 	local descriptor = endpoint.arguments :: Descriptor
 	local inbound = packets[endpointKey(serviceName, name, "server")]
 	local outbound = packets[endpointKey(serviceName, name, "client")]
 	local localSignal = if inbound then LocalSignal.new() else nil
+	local inboundMiddleware = if middleware then middleware.Inbound else nil
+	local outboundMiddleware = if middleware then middleware.Outbound else nil
 	if inbound then
 		inbound.listen(function(payload)
 			local args = decode(descriptor, payload)
-			local signal = localSignal :: any
-			signal:Fire(table.unpack(args, 1, args.n))
+			local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, nil, args)
+			if not succeeded then
+				warn(`[Nerve/ByteNet] {serviceName}.{name} inbound middleware failed: {tostring(allowed)}`)
+				return
+			end
+			if allowed then
+				local signal = localSignal :: any
+				signal:Fire(table.unpack(filteredArgs, 1, filteredArgs.n))
+			end
 		end)
 	end
 	local wrapper = {}
@@ -521,7 +679,11 @@ local function makeClientSignal(endpoint: Endpoint, packets: { [string]: any }, 
 	end
 	function wrapper:Fire(...)
 		assert(outbound, `{serviceName}.{name} cannot send client traffic`)
-		outbound.send(encode(descriptor, table.pack(...)))
+		local allowed, args = NetworkPolicy.RunMiddleware(outboundMiddleware, nil, table.pack(...))
+		if allowed then
+			outbound.send(encode(descriptor, args))
+		end
+		return allowed
 	end
 	function wrapper:Destroy()
 		if localSignal then
@@ -539,7 +701,13 @@ local function nextRequestId(): number
 	return requestId
 end
 
-local function makeClientMethod(endpoint: Endpoint, packets: { [string]: any }, serviceName: string, name: string)
+local function makeClientMethod(
+	endpoint: Endpoint,
+	packets: { [string]: any },
+	serviceName: string,
+	name: string,
+	middleware: any
+)
 	local requestPacket = packets[endpointKey(serviceName, name, "request")]
 	local successPacket = packets[endpointKey(serviceName, name, "success")]
 	local errorPacket = packets[endpointKey(serviceName, name, "error")]
@@ -547,24 +715,46 @@ local function makeClientMethod(endpoint: Endpoint, packets: { [string]: any }, 
 	local responseDescriptor = endpoint.response :: Descriptor
 	local pending: { [number]: any } = {}
 	local inFlight = 0
+	local inboundMiddleware = if middleware then middleware.Inbound else nil
+	local outboundMiddleware = if middleware then middleware.Outbound else nil
+
+	local function takePending(id: number, cancelTimeout: boolean): any
+		local request = pending[id]
+		if not request then
+			return nil
+		end
+
+		pending[id] = nil
+		inFlight -= 1
+
+		if cancelTimeout and request.timeoutThread then
+			task.cancel(request.timeoutThread)
+		end
+
+		return request
+	end
 
 	successPacket.listen(function(response)
-		local request = pending[response.id]
+		local request = takePending(response.id, true)
 		if not request then
 			return
 		end
-		pending[response.id] = nil
-		inFlight -= 1
+
 		local values = decode(responseDescriptor, response.payload)
-		request.resolve(table.unpack(values, 1, values.n))
+		local succeeded, allowed, filteredValues = pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, nil, values)
+		if not succeeded then
+			request.reject(`[MIDDLEWARE_ERROR] {safeError(allowed)}`)
+		elseif not allowed then
+			request.reject(`[MIDDLEWARE_REJECTED] {serviceName}.{name} response was rejected`)
+		else
+			request.resolve(table.unpack(filteredValues, 1, filteredValues.n))
+		end
 	end)
 	errorPacket.listen(function(response)
-		local request = pending[response.id]
+		local request = takePending(response.id, true)
 		if not request then
 			return
 		end
-		pending[response.id] = nil
-		inFlight -= 1
 		request.reject(`[{safeError(response.code)}] {safeError(response.message)}`)
 	end)
 
@@ -573,27 +763,39 @@ local function makeClientMethod(endpoint: Endpoint, packets: { [string]: any }, 
 			return Promise.reject(`[OVERLOADED] {serviceName}.{name} has too many requests in flight`)
 		end
 		local id = nextRequestId()
-		local args = table.pack(...)
+		local middlewareSucceeded, allowed, args =
+			pcall(NetworkPolicy.RunMiddleware, outboundMiddleware, nil, table.pack(...))
+		if not middlewareSucceeded then
+			return Promise.reject(`[MIDDLEWARE_ERROR] {safeError(allowed)}`)
+		elseif not allowed then
+			return Promise.reject(`[MIDDLEWARE_REJECTED] {serviceName}.{name} request was rejected`)
+		end
+
 		local timeout = endpoint.timeout or DEFAULT_TIMEOUT
 		return Promise.new(function(resolve, reject, onCancel)
 			inFlight += 1
 			pending[id] = {
 				resolve = resolve,
 				reject = reject,
+				timeoutThread = nil,
 			}
 			onCancel(function()
-				if pending[id] then
-					pending[id] = nil
-					inFlight -= 1
-				end
+				takePending(id, true)
 			end)
-			task.delay(timeout, function()
-				if pending[id] then
-					pending[id] = nil
-					inFlight -= 1
+
+			local timeoutThread = task.delay(timeout, function()
+				local request = takePending(id, false)
+				if request then
 					reject(`[TIMEOUT] {serviceName}.{name} exceeded {timeout} seconds`)
 				end
 			end)
+			local request = pending[id]
+			if request then
+				request.timeoutThread = timeoutThread
+			else
+				task.cancel(timeoutThread)
+			end
+
 			requestPacket.send({
 				id = id,
 				payload = encode(requestDescriptor, args),
@@ -602,8 +804,15 @@ local function makeClientMethod(endpoint: Endpoint, packets: { [string]: any }, 
 	end
 end
 
-function Runtime.StartClient(): ()
+function Runtime.StartClient(options: any?): ()
 	assert(RunService:IsClient(), "StartClient can only run on the client")
+	NetworkPolicy.ValidateMiddleware(options and options.Middleware, "Nerve client middleware")
+	if options and type(options.PerServiceMiddleware) == "table" then
+		for serviceName, middleware in options.PerServiceMiddleware do
+			NetworkPolicy.ValidateMiddleware(middleware, `Service "{serviceName}" client middleware`)
+		end
+	end
+
 	local manifestValue = ReplicatedStorage:WaitForChild(MANIFEST_NAME, 30)
 	assert(manifestValue and manifestValue:IsA("StringValue"), "Nerve ByteNet manifest was not published by the server")
 	local decoded = HttpService:JSONDecode(manifestValue.Value)
@@ -613,6 +822,7 @@ function Runtime.StartClient(): ()
 	)
 	clientManifest = decoded :: Manifest
 	clientPackets = definePackets(clientManifest :: Manifest)
+	clientOptions = options
 end
 
 function Runtime.GetClientService(serviceName: string): any
@@ -624,11 +834,17 @@ function Runtime.GetClientService(serviceName: string): any
 	local endpoints = (clientManifest :: Manifest).services[serviceName]
 	assert(endpoints, `Could not find networked service "{serviceName}"`)
 	local service = {}
+	local perServiceMiddleware = if clientOptions and type(clientOptions.PerServiceMiddleware) == "table"
+		then clientOptions.PerServiceMiddleware[serviceName]
+		else nil
+	local middleware = NetworkPolicy.ResolveMiddleware(clientOptions and clientOptions.Middleware, perServiceMiddleware)
 	for name, endpoint in endpoints do
 		if endpoint.kind == "method" then
-			service[name] = makeClientMethod(endpoint, clientPackets :: { [string]: any }, serviceName, name)
+			service[name] =
+				makeClientMethod(endpoint, clientPackets :: { [string]: any }, serviceName, name, middleware)
 		else
-			service[name] = makeClientSignal(endpoint, clientPackets :: { [string]: any }, serviceName, name)
+			service[name] =
+				makeClientSignal(endpoint, clientPackets :: { [string]: any }, serviceName, name, middleware)
 		end
 	end
 	clientServices[serviceName] = service

@@ -6,9 +6,9 @@
 Give your game a nervous system.
 
 Nerve is a batteries-included Roblox framework with a service/controller
-lifecycle, typed ByteNet networking, promises, signals, profile persistence,
-cleanup utilities, components, input helpers, and common data utilities in one
-drop-in package.
+lifecycle, typed ByteNet networking, React UI, promises, signals, profile
+persistence, cleanup utilities, components, input helpers, and common data
+utilities in one drop-in package.
 
 Nerve has no runtime dependencies outside its own folder.
 
@@ -18,6 +18,9 @@ Read the [Nerve documentation](https://velumix.github.io/Nerve/) for the
 installation guide, lifecycle model, typed networking, schemas, bundled
 dependencies, migration guide, and complete API reference.
 
+Framework contributors should also read [CONTRIBUTING.md](CONTRIBUTING.md) and
+the [testing and validation guide](docs/testing.md).
+
 ## Install
 
 Copy `src` into `ReplicatedStorage` as a ModuleScript named `Nerve`, or install
@@ -25,7 +28,7 @@ the package through Wally:
 
 ```toml
 [dependencies]
-Nerve = "velumix/nerve@1.1.0"
+Nerve = "velumix/nerve@1.2.0"
 ```
 
 Nerve starts itself. Its bundled server and client Scripts run directly from the
@@ -71,7 +74,12 @@ return InventoryService
 
 Nerve creates deterministic ByteNet packets from the service contract. Client
 methods return cancellable promises and include timeouts, bounded in-flight
-requests, server rate limits, and sanitized errors.
+requests, default server rate limits, executable middleware, cancelled timeout
+threads, and sanitized errors.
+
+Lifecycle startup is supervised: `NerveInit` and `NerveStart` are Promise-owned,
+and `Start()`/`OnStart()` reject with service or controller context when a hook
+fails. Readiness is reported only after both phases complete.
 
 ## Included dependencies
 
@@ -88,16 +96,22 @@ requests, server rate limits, and sanitized errors.
 - EnumList 2.1.0
 - Streamable 1.2.4
 - Symbol 2.0.1
+- React 17.3.10
+- ReactRoblox 17.3.10
 
 Access a bundled utility without adding another package:
 
 ```luau
 local ProfileService = Nerve.GetDependency("ProfileService")
 local Trove = Nerve.GetDependency("Trove")
+local React = Nerve.GetDependency("React")
+local ReactRoblox = Nerve.GetDependency("ReactRoblox")
 ```
 
 ProfileService is server-only in normal use. Dependencies are loaded lazily by
 `GetDependency`; requiring Nerve does not initialize every bundled library.
+Use React and ReactRoblox from a client controller to mount declarative UI into
+`PlayerGui`; see the [React UI guide](docs/react-ui.md).
 
 ## License
 

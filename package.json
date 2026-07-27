@@ -1,9 +1,10 @@
 {
   "name": "@velumix/nerve-docs",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Moonwave documentation tooling for Nerve",
   "scripts": {
+    "deps": "wally install && node scripts/materialize-react-dependencies.js",
     "docs:dev": "moonwave dev --code src/NerveServer.luau --code src/NerveClient.luau --code src/Schema.luau",
     "docs:build": "moonwave build --code src/NerveServer.luau --code src/NerveClient.luau --code src/Schema.luau",
     "docs:publish": "moonwave build --publish --code src/NerveServer.luau --code src/NerveClient.luau --code src/Schema.luau"

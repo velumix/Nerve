@@ -3,7 +3,9 @@
 	.Inbound ServerMiddleware?
 	.Outbound ServerMiddleware?
 	@within NerveServer
-	@private
+
+	Server middleware applied to client-originated requests/signals and
+	server-originated responses/signals.
 ]=]
 type Middleware = {
 	Inbound: ServerMiddleware?,
@@ -13,14 +15,15 @@ type Middleware = {
 --[=[
 	@type ServerMiddlewareFn (player: Player, args: {any}) -> (shouldContinue: boolean, ...: any)
 	@within NerveServer
-	@private
+
+	Return `true` to preserve the current arguments, `true, ...` to replace
+	them, or `false` to reject the method traffic or drop the signal.
 ]=]
 type ServerMiddlewareFn = (player: Player, args: { any }) -> (boolean, ...any)
 
 --[=[
 	@type ServerMiddleware {ServerMiddlewareFn}
 	@within NerveServer
-	@private
 	An array of server middleware functions.
 ]=]
 type ServerMiddleware = { ServerMiddlewareFn }
@@ -29,9 +32,11 @@ type ServerMiddleware = { ServerMiddlewareFn }
 	@interface ServiceDef
 	.Name string
 	.Client table?
+	.Middleware Middleware?
 	.[any] any
 	@within NerveServer
 	Used to define a service when creating it in `CreateService`.
+	Service middleware replaces Nerve-level server middleware for this service.
 ]=]
 type ServiceDef = {
 	Name: string,
@@ -66,9 +71,10 @@ type ServiceClient = {
 
 --[=[
 	@interface NerveServerOptions
+	.Middleware Middleware?
 	@within NerveServer
 
-	Reserved compatibility options. Nerve 1.0 has no public server start options.
+	Global server middleware used by services without their own middleware.
 ]=]
 type NerveServerOptions = {
 	Middleware: Middleware?,
@@ -108,7 +114,7 @@ local NerveServer = {}
 
 	The installed Nerve version.
 ]=]
-NerveServer.Version = "1.1.0"
+NerveServer.Version = "1.2.0"
 
 --[=[
 	@prop Dependencies Folder
@@ -132,6 +138,7 @@ NerveServer.Util = NerveServer.Dependencies
 
 local Promise = require(NerveServer.Dependencies.Promise)
 local ByteNetRuntime = require(script.Parent.Runtime)
+local Lifecycle = require(script.Parent.Lifecycle)
 local Schema = require(script.Parent.Schema)
 
 NerveServer.Schema = Schema
@@ -161,7 +168,7 @@ end
 	Defines a typed client-to-server request/response contract. Place the result
 	in a service's `Network` table using the same name as its `Client` method.
 
-	@param options {Request: Descriptor?, Response: Descriptor?, Timeout: number?, RateLimit: {Requests: number, Window: number}?}?
+	@param options {Request: Descriptor?, Response: Descriptor?, Timeout: number?, RateLimit: ({Requests: number, Window: number} | false)?}?
 	@return any
 	@tag networking
 ]=]
@@ -177,7 +184,7 @@ NerveServer.Method = ByteNetRuntime.Method
 	`Direction` to `"client"` or `"duplex"` only when needed.
 
 	@param arguments Descriptor? -- Tuple descriptor for signal arguments.
-	@param options {Direction: string?, Reliability: string?}?
+	@param options {Direction: string?, Reliability: string?, RateLimit: ({Requests: number, Window: number} | false)?}?
 	@return any
 	@tag networking
 ]=]
@@ -186,7 +193,22 @@ NerveServer.Signal = ByteNetRuntime.Signal
 local services: { [string]: Service } = {}
 local started = false
 local startedComplete = false
-local onStartedComplete = Instance.new("BindableEvent")
+local startFailed = false
+local startFailure = nil
+local startPromise = nil
+local startWaiters = {}
+
+local function settleStartWaiters(succeeded: boolean, reason: any?)
+	for _, waiter in startWaiters do
+		if succeeded then
+			waiter.Resolve()
+		else
+			waiter.Reject(reason)
+		end
+	end
+
+	table.clear(startWaiters)
+end
 
 local function DoesServiceExist(serviceName: string): boolean
 	local service: Service? = services[serviceName]
@@ -400,43 +422,27 @@ function NerveServer.Start(options: NerveServerOptions?)
 		end
 	end
 
-	return Promise.new(function(resolve)
-		ByteNetRuntime.StartServer(services)
-
-		-- Init:
-		local promisesInitServices = {}
-		for _, service in services do
-			if type(service.NerveInit) == "function" then
-				table.insert(
-					promisesInitServices,
-					Promise.new(function(r)
-						debug.setmemorycategory(service.Name)
-						service:NerveInit()
-						r()
-					end)
-				)
-			end
-		end
-
-		resolve(Promise.all(promisesInitServices))
-	end):andThen(function()
-		-- Start:
-		for _, service in services do
-			if type(service.NerveStart) == "function" then
-				task.spawn(function()
-					debug.setmemorycategory(service.Name)
-					service:NerveStart()
-				end)
-			end
-		end
-
-		startedComplete = true
-		onStartedComplete:Fire()
-
-		task.defer(function()
-			onStartedComplete:Destroy()
-		end)
+	startPromise = Promise.try(function()
+		ByteNetRuntime.StartServer(services, selectedOptions)
 	end)
+		:andThen(function()
+			return Lifecycle.Run(services, "NerveInit", "service", Promise)
+		end)
+		:andThen(function()
+			return Lifecycle.Run(services, "NerveStart", "service", Promise)
+		end)
+		:andThen(function()
+			startedComplete = true
+			settleStartWaiters(true)
+		end)
+		:catch(function(reason)
+			startFailed = true
+			startFailure = reason
+			settleStartWaiters(false, reason)
+			return Promise.reject(reason)
+		end)
+
+	return startPromise
 end
 
 --[=[
@@ -455,8 +461,23 @@ end
 function NerveServer.OnStart()
 	if startedComplete then
 		return Promise.resolve()
+	elseif startFailed then
+		return Promise.reject(startFailure)
 	else
-		return Promise.fromEvent(onStartedComplete.Event)
+		return Promise.new(function(resolve, reject, onCancel)
+			local waiter = {
+				Resolve = resolve,
+				Reject = reject,
+			}
+			table.insert(startWaiters, waiter)
+
+			onCancel(function()
+				local index = table.find(startWaiters, waiter)
+				if index then
+					table.remove(startWaiters, index)
+				end
+			end)
+		end)
 	end
 end
 
