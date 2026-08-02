@@ -14,14 +14,13 @@ Licensed under the MIT License.
 
 Upstream: <https://github.com/Sleitnick/Knit>
 
-## ByteNet 0.4.6
+## ByteNet Max 0.2.7
 
 Copyright 2023 ffrostfall
 
-Licensed under the MIT License. Nerve applies documented per-player channel
-initialization and cleanup changes to the vendored server transport.
+Licensed under the MIT License.
 
-Upstream: <https://github.com/ffrostfall/ByteNet>
+Upstream: <https://github.com/Elitriare/ByteNet-Max>
 
 ## Promise 4.0.0
 

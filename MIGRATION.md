@@ -1,7 +1,7 @@
 # Migrating from Knit
 
 Nerve keeps the familiar service/controller lifecycle while replacing Comm
-with a typed ByteNet transport and bundling its runtime dependencies.
+with a typed ByteNet Max transport and bundling its runtime dependencies.
 
 ## Rename imports
 
@@ -38,7 +38,7 @@ Use `Nerve.GetDependency("Promise")`, `Nerve.GetDependency("Signal")`,
 
 ## Intentional differences
 
-- ByteNet is the only remote transport.
+- ByteNet Max is the only remote transport.
 - Client remote methods always return promises.
 - Network calls use schemas, timeouts, bounded concurrency, and optional
   server-side rate limits.

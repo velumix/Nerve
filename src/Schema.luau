@@ -6,7 +6,7 @@
 	Builds immutable descriptors for Nerve method and signal payloads.
 
 	Schema descriptors are plain tables. The server serializes them into the
-	network manifest, and clients reconstruct identical ByteNet data types without
+	network manifest, and clients reconstruct identical ByteNet Max data types without
 	receiving server-only service modules.
 
 	```lua
