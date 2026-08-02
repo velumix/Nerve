@@ -144,7 +144,8 @@ local Lifecycle = require(script.Parent.Lifecycle)
 local Schema = require(script.Parent.Schema)
 
 NerveClient.Schema = Schema
-NerveClient.ByteNet = require(NerveClient.Dependencies.ByteNet)
+NerveClient.ByteNetMax = require(NerveClient.Dependencies.ByteNetMax)
+NerveClient.ByteNet = NerveClient.ByteNetMax
 NerveClient.Promise = Promise
 NerveClient.SignalClass = require(NerveClient.Dependencies.Signal)
 NerveClient.Method = ByteNetRuntime.Method

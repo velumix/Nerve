@@ -91,7 +91,7 @@ local selectedOptions = nil
 	@server
 
 	The server API creates services, runs their lifecycle, and exposes typed
-	ByteNet methods and signals to clients.
+	ByteNet Max methods and signals to clients.
 
 	```lua
 	local Nerve = require(somewhere.Nerve)
@@ -142,7 +142,8 @@ local Lifecycle = require(script.Parent.Lifecycle)
 local Schema = require(script.Parent.Schema)
 
 NerveServer.Schema = Schema
-NerveServer.ByteNet = require(NerveServer.Dependencies.ByteNet)
+NerveServer.ByteNetMax = require(NerveServer.Dependencies.ByteNetMax)
+NerveServer.ByteNet = NerveServer.ByteNetMax
 NerveServer.Promise = Promise
 NerveServer.SignalClass = require(NerveServer.Dependencies.Signal)
 
@@ -179,7 +180,7 @@ NerveServer.Method = ByteNetRuntime.Method
 	@within NerveServer
 	@server
 
-	Defines a typed ByteNet signal. Signals are reliable and server-to-client by
+	Defines a typed ByteNet Max signal. Signals are reliable and server-to-client by
 	default. Place the marker directly in the service's `Client` table. Set
 	`Direction` to `"client"` or `"duplex"` only when needed.
 
@@ -374,7 +375,7 @@ end
 
 --[=[
 	Reserved compatibility marker. Nerve 1.0 does not expose property markers in
-	the ByteNet manifest; use a typed method for initial state and a typed signal
+	the ByteNet Max manifest; use a typed method for initial state and a typed signal
 	for subsequent changes.
 
 	@param initialValue any

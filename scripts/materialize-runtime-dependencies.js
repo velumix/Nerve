@@ -95,3 +95,19 @@ if (!fs.existsSync(profileStoreSource) || !fs.statSync(profileStoreSource).isFil
 }
 fs.copyFileSync(profileStoreSource, profileStoreDestination);
 console.log(`Materialized ProfileStore 1.0.3 into ${path.relative(root, profileStoreDestination)}`);
+
+const vendorPackageIndex = path.join(root, "scripts", "vendor", "Packages", "_Index");
+const byteNetMaxPackage = path.join(
+  vendorPackageIndex,
+  "elitriare_bytenet-max@0.2.7",
+  "bytenet-max",
+  "src",
+);
+const byteNetMaxDestination = path.join(dependenciesRoot, "ByteNetMax");
+
+if (!fs.existsSync(byteNetMaxPackage) || !fs.statSync(byteNetMaxPackage).isDirectory()) {
+  throw new Error(`ByteNet Max source is missing after Wally install: ${byteNetMaxPackage}`);
+}
+fs.rmSync(byteNetMaxDestination, { recursive: true, force: true });
+copyRuntimeTree(byteNetMaxPackage, byteNetMaxDestination);
+console.log(`Materialized ByteNet Max 0.2.7 into ${path.relative(root, byteNetMaxDestination)}`);

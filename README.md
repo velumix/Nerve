@@ -6,7 +6,7 @@
 Give your game a nervous system.
 
 Nerve is a batteries-included Roblox framework with a service/controller
-lifecycle, typed ByteNet networking, React UI, promises, signals, profile
+lifecycle, typed ByteNet Max networking, React UI, promises, signals, profile
 persistence, cleanup utilities, components, input helpers, and common data
 utilities in one drop-in package.
 
@@ -72,7 +72,7 @@ end
 return InventoryService
 ```
 
-Nerve creates deterministic ByteNet packets from the service contract. Client
+Nerve creates deterministic ByteNet Max packets from the service contract. Client
 methods return cancellable promises and include timeouts, bounded in-flight
 requests, default server rate limits, executable middleware, cancelled timeout
 threads, and sanitized errors.
@@ -83,7 +83,7 @@ fails. Readiness is reported only after both phases complete.
 
 ## Included dependencies
 
-- ByteNet 0.4.6
+- ByteNet Max 0.2.7
 - Promise 4.0.0
 - Signal 2.0.3
 - ProfileStore 1.0.3

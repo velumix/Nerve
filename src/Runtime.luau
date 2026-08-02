@@ -6,15 +6,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Dependencies = script.Parent.Dependencies
-local ByteNet = require(Dependencies.ByteNet)
-local ByteNetColor3 = require(Dependencies.ByteNet.dataTypes.color3)()
+local ByteNetMax = require(Dependencies.ByteNetMax)
 local Promise = require(Dependencies.Promise)
 local LocalSignal = require(Dependencies.Signal)
 local NetworkPolicy = require(script.Parent.NetworkPolicy)
 local Schema = require(script.Parent.Schema)
 
 local MANIFEST_NAME = "NerveManifest"
-local NAMESPACE_NAME = "Nerve.ByteNet.v1"
+local NAMESPACE_NAME = "Nerve.ByteNetMax.v1"
 local MAX_PACKETS = 240
 local DEFAULT_TIMEOUT = 10
 local DEFAULT_MAX_IN_FLIGHT = 128
@@ -145,63 +144,63 @@ end
 local function dataType(descriptor: Descriptor): any
 	local kind = descriptor.kind
 	if kind == "packed" or kind == "unknown" then
-		return ByteNet.unknown
+		return ByteNetMax.unknown
 	elseif kind == "nothing" then
-		return ByteNet.nothing
+		return ByteNetMax.nothing
 	elseif kind == "bool" then
-		return ByteNet.bool
+		return ByteNetMax.bool
 	elseif kind == "string" then
-		return ByteNet.string
+		return ByteNetMax.string
 	elseif kind == "buffer" then
-		return ByteNet.buff
+		return ByteNetMax.buff
 	elseif kind == "uint8" then
-		return ByteNet.uint8
+		return ByteNetMax.uint8
 	elseif kind == "uint16" then
-		return ByteNet.uint16
+		return ByteNetMax.uint16
 	elseif kind == "uint32" then
-		return ByteNet.uint32
+		return ByteNetMax.uint32
 	elseif kind == "int8" then
-		return ByteNet.int8
+		return ByteNetMax.int8
 	elseif kind == "int16" then
-		return ByteNet.int16
+		return ByteNetMax.int16
 	elseif kind == "int32" then
-		return ByteNet.int32
+		return ByteNetMax.int32
 	elseif kind == "float32" then
-		return ByteNet.float32
+		return ByteNetMax.float32
 	elseif kind == "float64" then
-		return ByteNet.float64
+		return ByteNetMax.float64
 	elseif kind == "vec2" then
-		return ByteNet.vec2
+		return ByteNetMax.vec2
 	elseif kind == "vec3" then
-		return ByteNet.vec3
+		return ByteNetMax.vec3
 	elseif kind == "cframe" then
-		return ByteNet.cframe
+		return ByteNetMax.cframe
 	elseif kind == "color3" then
-		return ByteNetColor3
+		return ByteNetMax.color3
 	elseif kind == "instance" then
-		return ByteNet.inst
+		return ByteNetMax.inst
 	elseif kind == "optional" then
-		return ByteNet.optional(dataType(descriptor.value))
+		return ByteNetMax.optional(dataType(descriptor.value))
 	elseif kind == "array" then
-		return ByteNet.array(dataType(descriptor.value))
+		return ByteNetMax.array(dataType(descriptor.value))
 	elseif kind == "map" then
-		return ByteNet.map(dataType(descriptor.key), dataType(descriptor.value))
+		return ByteNetMax.map(dataType(descriptor.key), dataType(descriptor.value))
 	elseif kind == "struct" then
 		local fields = {}
 		for _, name in sortedKeys(descriptor.fields) do
 			local fieldDescriptor = descriptor.fields[name]
 			fields[name] = dataType(fieldDescriptor)
 		end
-		return ByteNet.struct(fields)
+		return ByteNetMax.struct(fields)
 	elseif kind == "tuple" then
 		if #descriptor.items == 0 then
-			return ByteNet.nothing
+			return ByteNetMax.nothing
 		end
 		local fields = {}
 		for index, itemDescriptor in descriptor.items do
 			fields[`v{index}`] = dataType(itemDescriptor)
 		end
-		return ByteNet.struct(fields)
+		return ByteNetMax.struct(fields)
 	end
 	error(`Unsupported schema kind "{kind}"`)
 end
@@ -245,7 +244,7 @@ end
 
 local function definePackets(manifest: Manifest): { [string]: any }
 	local packetCount = 0
-	return ByteNet.defineNamespace(NAMESPACE_NAME, function()
+	local namespace = ByteNetMax.defineNamespace(NAMESPACE_NAME, function()
 		local definitions = {}
 		for _, serviceName in sortedKeys(manifest.services) do
 			local endpoints = manifest.services[serviceName]
@@ -254,25 +253,25 @@ local function definePackets(manifest: Manifest): { [string]: any }
 				if endpoint.kind == "method" then
 					local requestType = dataType(endpoint.request :: Descriptor)
 					local responseType = dataType(endpoint.response :: Descriptor)
-					definitions[endpointKey(serviceName, name, "request")] = ByteNet.definePacket({
-						value = ByteNet.struct({
-							id = ByteNet.uint32,
+					definitions[endpointKey(serviceName, name, "request")] = ByteNetMax.definePacket({
+						value = ByteNetMax.struct({
+							id = ByteNetMax.uint32,
 							payload = requestType,
 						}),
 						reliabilityType = "reliable",
 					})
-					definitions[endpointKey(serviceName, name, "success")] = ByteNet.definePacket({
-						value = ByteNet.struct({
-							id = ByteNet.uint32,
+					definitions[endpointKey(serviceName, name, "success")] = ByteNetMax.definePacket({
+						value = ByteNetMax.struct({
+							id = ByteNetMax.uint32,
 							payload = responseType,
 						}),
 						reliabilityType = "reliable",
 					})
-					definitions[endpointKey(serviceName, name, "error")] = ByteNet.definePacket({
-						value = ByteNet.struct({
-							id = ByteNet.uint32,
-							code = ByteNet.string,
-							message = ByteNet.string,
+					definitions[endpointKey(serviceName, name, "error")] = ByteNetMax.definePacket({
+						value = ByteNetMax.struct({
+							id = ByteNetMax.uint32,
+							code = ByteNetMax.string,
+							message = ByteNetMax.string,
 						}),
 						reliabilityType = "reliable",
 					})
@@ -281,14 +280,14 @@ local function definePackets(manifest: Manifest): { [string]: any }
 					local direction = endpoint.direction or "server"
 					local argumentsType = dataType(endpoint.arguments :: Descriptor)
 					if direction == "server" or direction == "duplex" then
-						definitions[endpointKey(serviceName, name, "server")] = ByteNet.definePacket({
+						definitions[endpointKey(serviceName, name, "server")] = ByteNetMax.definePacket({
 							value = argumentsType,
 							reliabilityType = endpoint.reliability or "reliable",
 						})
 						packetCount += 1
 					end
 					if direction == "client" or direction == "duplex" then
-						definitions[endpointKey(serviceName, name, "client")] = ByteNet.definePacket({
+						definitions[endpointKey(serviceName, name, "client")] = ByteNetMax.definePacket({
 							value = argumentsType,
 							reliabilityType = endpoint.reliability or "reliable",
 						})
@@ -299,10 +298,14 @@ local function definePackets(manifest: Manifest): { [string]: any }
 		end
 		assert(
 			packetCount <= MAX_PACKETS,
-			`Nerve network uses {packetCount} packets; ByteNet v0.4 supports at most {MAX_PACKETS} safely`
+			`Nerve network uses {packetCount} packets; ByteNet Max supports at most {MAX_PACKETS} safely`
 		)
-		return definitions
+		return {
+			packets = definitions,
+			queries = {},
+		}
 	end)
+	return namespace.packets
 end
 
 local function descriptorFromMethod(value: any): Endpoint
@@ -403,7 +406,7 @@ local function makeServerSignal(
 	local function filterOutbound(player: Player, args: { [any]: any }): (boolean, { [any]: any })
 		local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, outboundMiddleware, player, args)
 		if not succeeded then
-			warn(`[Nerve/ByteNet] {endpointName} outbound middleware failed: {tostring(allowed)}`)
+			warn(`[Nerve/ByteNetMax] {endpointName} outbound middleware failed: {tostring(allowed)}`)
 			return false, args
 		end
 		return allowed, filteredArgs
@@ -421,7 +424,7 @@ local function makeServerSignal(
 			local args = decode(descriptor, payload)
 			local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, player, args)
 			if not succeeded then
-				warn(`[Nerve/ByteNet] {endpointName} inbound middleware failed: {tostring(allowed)}`)
+				warn(`[Nerve/ByteNetMax] {endpointName} inbound middleware failed: {tostring(allowed)}`)
 				return
 			end
 			if allowed then
@@ -531,7 +534,7 @@ local function bindServerMethod(
 		local middlewareSucceeded, allowed, filteredArgs =
 			pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, player, args)
 		if not middlewareSucceeded then
-			warn(`[Nerve/ByteNet] {endpointName} inbound middleware failed: {tostring(allowed)}`)
+			warn(`[Nerve/ByteNetMax] {endpointName} inbound middleware failed: {tostring(allowed)}`)
 			errorPacket.sendTo({
 				id = request.id,
 				code = "SERVER_ERROR",
@@ -578,7 +581,7 @@ local function bindServerMethod(
 			end)
 			:catch(function(reason)
 				if player.Parent == Players then
-					warn(`[Nerve/ByteNet] {endpointName} failed: {tostring(reason)}`)
+					warn(`[Nerve/ByteNetMax] {endpointName} failed: {tostring(reason)}`)
 					errorPacket.sendTo({
 						id = request.id,
 						code = "SERVER_ERROR",
@@ -608,7 +611,7 @@ function Runtime.StartServer(services: { [string]: any }, options: any?): ()
 
 	local manifest = buildManifest(services)
 	local packets = definePackets(manifest)
-	-- Publish last. Waiting for the manifest must guarantee that ByteNet has
+	-- Publish last. Waiting for the manifest must guarantee that ByteNet Max has
 	-- already replicated its namespace metadata to every client.
 	publishManifest(manifest)
 	local rateState = {}
@@ -655,7 +658,7 @@ local function makeClientSignal(
 			local args = decode(descriptor, payload)
 			local succeeded, allowed, filteredArgs = pcall(NetworkPolicy.RunMiddleware, inboundMiddleware, nil, args)
 			if not succeeded then
-				warn(`[Nerve/ByteNet] {serviceName}.{name} inbound middleware failed: {tostring(allowed)}`)
+				warn(`[Nerve/ByteNetMax] {serviceName}.{name} inbound middleware failed: {tostring(allowed)}`)
 				return
 			end
 			if allowed then
@@ -814,11 +817,14 @@ function Runtime.StartClient(options: any?): ()
 	end
 
 	local manifestValue = ReplicatedStorage:WaitForChild(MANIFEST_NAME, 30)
-	assert(manifestValue and manifestValue:IsA("StringValue"), "Nerve ByteNet manifest was not published by the server")
+	assert(
+		manifestValue and manifestValue:IsA("StringValue"),
+		"Nerve ByteNet Max manifest was not published by the server"
+	)
 	local decoded = HttpService:JSONDecode(manifestValue.Value)
 	assert(
 		type(decoded) == "table" and decoded.version == 1 and type(decoded.services) == "table",
-		"Nerve ByteNet manifest is invalid"
+		"Nerve ByteNet Max manifest is invalid"
 	)
 	clientManifest = decoded :: Manifest
 	clientPackets = definePackets(clientManifest :: Manifest)
@@ -830,7 +836,7 @@ function Runtime.GetClientService(serviceName: string): any
 	if existing then
 		return existing
 	end
-	assert(clientManifest and clientPackets, "Nerve ByteNet client runtime has not started")
+	assert(clientManifest and clientPackets, "Nerve ByteNet Max client runtime has not started")
 	local endpoints = (clientManifest :: Manifest).services[serviceName]
 	assert(endpoints, `Could not find networked service "{serviceName}"`)
 	local service = {}
